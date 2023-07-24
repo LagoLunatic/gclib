@@ -1,0 +1,25 @@
+[project]
+name = "gclib"
+version = "1.0.0"
+description = "Implementations of several file formats used by various GameCube games."
+authors = [{name = "LagoLunatic"}]
+license = {file = "LICENSE.txt"}
+readme = "README.md"
+keywords = ["romhacking", "gamecube", "gcn", "gcm", "rarc", "bti", "yaz0", "dol", "bfn", "bmg", "j3d", "jpc"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Games/Entertainment",
+]
+
+requires-python = ">=3.10"
+dependencies = [
+  "Pillow==9.3.0",
+]
+
+[project.optional-dependencies]
+speedups = [
+  "PyFastBTI @ git+https://github.com/LagoLunatic/PyFastBTI.git@master",
+  "PyFastTextureUtils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@master",
+  "PyFastYaz0 @ git+https://github.com/LagoLunatic/PyFastYaz0.git@master",
+]
