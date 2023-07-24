@@ -27,7 +27,9 @@ Note: BTI is fully supported except for mipmaps.
 ## Installation
 
 To install just the pure Python implementation, run:
+
 `pip install "gclib @ git+https://github.com/LagoLunatic/gclib.git"`
 
 To install a faster version of certain functions written in C (such as Yaz0 encoding), instead run:
+
 `pip install "gclib[speedups] @ git+https://github.com/LagoLunatic/gclib.git"`
