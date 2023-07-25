@@ -8,13 +8,13 @@ import operator
 from gclib import fs_helpers as fs
 
 try:
-  import pyfastbti
+  import pyfastbti # type: ignore
   PY_FAST_BTI_INSTALLED = True
 except ImportError:
   PY_FAST_BTI_INSTALLED = False
 
 try:
-  import pyfasttextureutils
+  import pyfasttextureutils # type: ignore
   PY_FAST_TEXTURE_UTILS_INSTALLED = True
 except ImportError:
   PY_FAST_TEXTURE_UTILS_INSTALLED = False

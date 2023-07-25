@@ -5,7 +5,7 @@ from io import BytesIO
 from gclib import fs_helpers as fs
 
 try:
-  import pyfastyaz0
+  import pyfastyaz0 # type: ignore
   PY_FAST_YAZ0_INSTALLED = True
 except ImportError:
   PY_FAST_YAZ0_INSTALLED = False
