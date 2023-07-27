@@ -163,8 +163,8 @@ class J3DChunk:
   def save_changes(self):
     self.save_chunk_specific_data()
     
-    # Pad the size of this chunk to the next 0x20 bytes.
-    fs.align_data_to_nearest(self.data, 0x20)
+    # Pad the size of this chunk.
+    fs.align_data_to_nearest(self.data, self.padding_alignment_size, padding_bytes=self.padding_bytes)
     
     self.size = fs.data_len(self.data)
     fs.write_magic_str(self.data, 0, self.magic, 4)
@@ -172,6 +172,14 @@ class J3DChunk:
   
   def save_chunk_specific_data(self):
     pass
+  
+  @property
+  def padding_alignment_size(self) -> int:
+    return 0x20
+  
+  @property
+  def padding_bytes(self) -> bytes:
+    return fs.PADDING_BYTES
   
   def read_string_table(self, string_table_offset):
     num_strings = fs.read_u16(self.data, string_table_offset+0x00)

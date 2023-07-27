@@ -212,12 +212,16 @@ class JPC:
       particle_data = particle.data.read()
       self.data.write(particle_data)
     
+    fs.align_data_to_nearest(self.data, 0x20, padding_bytes=b'\0')
+    
     for texture in self.textures:
       texture.save_changes()
       
       texture.data.seek(0)
       texture_data = texture.data.read()
       self.data.write(texture_data)
+    
+    fs.align_data_to_nearest(self.data, 0x20, padding_bytes=b'\0')
 
 class Particle:
   def __init__(self, jpc_data, particle_offset, jpac_version: JPACVersion):
@@ -310,6 +314,17 @@ class JPAChunk(J3DChunk):
   def __init__(self, version: JPACVersion):
     super().__init__()
     self.version = version
+  
+  @property
+  def padding_alignment_size(self) -> int:
+    if self.version == JPACVersion.JPAC1_00:
+      return 0x20
+    elif self.version == JPACVersion.JPAC2_10:
+      return 0x4
+  
+  @property
+  def padding_bytes(self) -> bytes:
+    return b'\0'
 
 class BSP1(JPAChunk):
   def read_chunk_specific_data(self):
@@ -535,6 +550,8 @@ class TDB1(JPAChunk):
       self.texture_ids = self.texture_ids[:-1]
   
   def save_chunk_specific_data(self):
+    self.data.truncate(TDB1_ID_LIST_OFFSET[self.version])
+    
     # Save the texture IDs (which were updated by the JPC's save_changes function).
     for texture_id_index, texture_id in enumerate(self.texture_ids):
       fs.write_u16(self.data, TDB1_ID_LIST_OFFSET[self.version] + texture_id_index*2, texture_id)
