@@ -623,20 +623,28 @@ class Joint:
     self.data = data
   
   def read(self, offset):
-    self.x_rot = fs.read_u16(self.data, offset+0x10)
-    self.y_rot = fs.read_u16(self.data, offset+0x12)
-    self.z_rot = fs.read_u16(self.data, offset+0x14)
+    self.rotation = (
+      fs.read_u16(self.data, offset+0x10),
+      fs.read_u16(self.data, offset+0x12),
+      fs.read_u16(self.data, offset+0x14),
+    )
     
-    self.x = fs.read_float(self.data, offset+0x18)
-    self.y = fs.read_float(self.data, offset+0x1C)
-    self.z = fs.read_float(self.data, offset+0x20)
+    self.position = (
+      fs.read_float(self.data, offset+0x18),
+      fs.read_float(self.data, offset+0x1C),
+      fs.read_float(self.data, offset+0x20),
+    )
     
-    self.bbox_min_x = fs.read_float(self.data, offset+0x28)
-    self.bbox_min_y = fs.read_float(self.data, offset+0x28)
-    self.bbox_min_z = fs.read_float(self.data, offset+0x28)
-    self.bbox_max_x = fs.read_float(self.data, offset+0x28)
-    self.bbox_max_y = fs.read_float(self.data, offset+0x28)
-    self.bbox_max_z = fs.read_float(self.data, offset+0x28)
+    self.bbox_min = (
+      fs.read_float(self.data, offset+0x28),
+      fs.read_float(self.data, offset+0x2C),
+      fs.read_float(self.data, offset+0x30),
+    )
+    self.bbox_max = (
+      fs.read_float(self.data, offset+0x34),
+      fs.read_float(self.data, offset+0x38),
+      fs.read_float(self.data, offset+0x3C),
+    )
   
   def save(self, offset):
     pass
@@ -674,12 +682,16 @@ class Shape:
     
     self.bounding_sphere_radius = fs.read_float(self.data, offset+0x0C)
     
-    self.bbox_min_x = fs.read_float(self.data, offset+0x10)
-    self.bbox_min_y = fs.read_float(self.data, offset+0x14)
-    self.bbox_min_z = fs.read_float(self.data, offset+0x18)
-    self.bbox_max_x = fs.read_float(self.data, offset+0x1C)
-    self.bbox_max_y = fs.read_float(self.data, offset+0x20)
-    self.bbox_max_z = fs.read_float(self.data, offset+0x24)
+    self.bbox_min = (
+      fs.read_float(self.data, offset+0x10),
+      fs.read_float(self.data, offset+0x14),
+      fs.read_float(self.data, offset+0x18),
+    )
+    self.bbox_max = (
+      fs.read_float(self.data, offset+0x1C),
+      fs.read_float(self.data, offset+0x20),
+      fs.read_float(self.data, offset+0x24),
+    )
   
   def save(self, offset):
     pass
