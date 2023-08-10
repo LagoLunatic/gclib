@@ -12,9 +12,9 @@ classifiers = [
   "Topic :: Games/Entertainment",
 ]
 
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-  "Pillow==9.3.0",
+  "Pillow>=9.3.0",
 ]
 
 [project.optional-dependencies]
