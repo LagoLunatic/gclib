@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import os
 from io import BytesIO
@@ -9,7 +8,7 @@ from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile, GCLibFileEntry
 from gclib.yaz0 import Yaz0
 
-T = TypeVar('T', bound=GCLibFile)
+GCLibFileT = TypeVar('GCLibFileT', bound=GCLibFile)
 
 class RARC(GCLibFile):
   def __init__(self, file_entry_or_data = None):
@@ -457,7 +456,7 @@ class RARC(GCLibFile):
         return file_entry
     return None
   
-  def get_file(self, file_name: str, file_type: Type[T]) -> T:
+  def get_file(self, file_name: str, file_type: Type[GCLibFileT]) -> GCLibFileT:
     if file_name in self.instantiated_object_files:
       return self.instantiated_object_files[file_name]
     
@@ -465,7 +464,7 @@ class RARC(GCLibFile):
     if file_entry is None:
       return None
     
-    file_instance: T = file_type(file_entry)
+    file_instance = file_type(file_entry)
     self.instantiated_object_files[file_name] = file_instance
     return file_instance
 
