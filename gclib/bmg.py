@@ -4,21 +4,23 @@ import re
 
 from gclib import fs_helpers as fs
 from gclib.bfn import BFN
+from gclib.gclib_file import GCLibFile
 
-class BMG:
-  def __init__(self, file_entry):
-    self.file_entry = file_entry
-    data = self.file_entry.data
-    
-    self.magic = fs.read_str(data, 0, 8)
+class BMG(GCLibFile):
+  def __init__(self, file_entry_or_data = None):
+    super().__init__(file_entry_or_data)
+    self.read()
+  
+  def read(self):
+    self.magic = fs.read_str(self.data, 0, 8)
     assert self.magic == "MESGbmg1"
-    self.length = fs.read_u32(data, 8)
-    self.num_sections = fs.read_u32(data, 0x0C)
+    self.length = fs.read_u32(self.data, 8)
+    self.num_sections = fs.read_u32(self.data, 0x0C)
     
     self.sections = []
     offset = 0x20
     for section_index in range(self.num_sections):
-      section = BMGSection(data, offset, self)
+      section = BMGSection(self.data, offset, self)
       self.sections.append(section)
       
       if section.magic == "INF1":
@@ -35,18 +37,16 @@ class BMG:
       message.read_string()
   
   def save_changes(self):
-    data = self.file_entry.data
-    
     # Cut off the section data first since we're replacing this data entirely.
-    data.truncate(0x20)
-    data.seek(0x20)
+    self.data.truncate(0x20)
+    self.data.seek(0x20)
     
     for section in self.sections:
       section.save_changes()
       
       section.data.seek(0)
       section_data = section.data.read()
-      data.write(section_data)
+      self.data.write(section_data)
   
   @property
   def messages(self):
@@ -345,9 +345,3 @@ class Message:
       part = self.word_wrap_string_part(font, part, extra_line_length)
       part = self.pad_string_to_next_4_lines(part)
       self.string += part
-
-try:
-  from gclib.rarc import RARC
-  RARC.FILE_EXT_TO_CLASS[".bmg"] = BMG
-except ImportError:
-  print(f"Could not register file extension with RARC in file {__file__}")

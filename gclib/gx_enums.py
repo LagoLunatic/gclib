@@ -1,6 +1,6 @@
 from enum import Enum
 
-class GXAttr(Enum): 
+class GXAttr(Enum):
   PositionMatrixIndex   = 0x00
   Tex0MatrixIndex       = 0x01
   Tex1MatrixIndex       = 0x02

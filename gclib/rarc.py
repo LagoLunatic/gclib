@@ -1,18 +1,19 @@
+from __future__ import annotations
 
 import os
 from io import BytesIO
 from enum import IntFlag
+from typing import Type, TypeVar
 
 from gclib import fs_helpers as fs
+from gclib.gclib_file import GCLibFile, GCLibFileEntry
 from gclib.yaz0 import Yaz0
 
+T = TypeVar('T', bound=GCLibFile)
 
-class RARC:
-  FILE_EXT_TO_CLASS = {}
-  FILE_NAME_TO_CLASS = {}
-  
-  def __init__(self):
-    self.data = BytesIO()
+class RARC(GCLibFile):
+  def __init__(self, file_entry_or_data = None):
+    super().__init__(file_entry_or_data)
     
     self.magic = "RARC"
     self.size = None
@@ -38,39 +39,32 @@ class RARC:
     self.file_entries = []
     self.instantiated_object_files = {}
   
-  def read(self, data):
-    self.data = data
-    
-    if Yaz0.check_is_compressed(self.data):
-      self.data = Yaz0.decompress(self.data)
-    
-    data = self.data
-    
+  def read(self):
     # Read header.
-    self.magic = fs.read_str(data, 0, 4)
+    self.magic = fs.read_str(self.data, 0, 4)
     assert self.magic == "RARC"
-    self.size = fs.read_u32(data, 4)
-    self.data_header_offset = fs.read_u32(data, 0x8)
+    self.size = fs.read_u32(self.data, 4)
+    self.data_header_offset = fs.read_u32(self.data, 0x8)
     assert self.data_header_offset == 0x20
-    self.file_data_list_offset = fs.read_u32(data, 0xC) + self.data_header_offset
-    self.total_file_data_size = fs.read_u32(data, 0x10)
-    self.mram_file_data_size = fs.read_u32(data, 0x14)
-    self.aram_file_data_size = fs.read_u32(data, 0x18)
-    self.unknown_1 = fs.read_u32(data, 0x1C)
+    self.file_data_list_offset = fs.read_u32(self.data, 0xC) + self.data_header_offset
+    self.total_file_data_size = fs.read_u32(self.data, 0x10)
+    self.mram_file_data_size = fs.read_u32(self.data, 0x14)
+    self.aram_file_data_size = fs.read_u32(self.data, 0x18)
+    self.unknown_1 = fs.read_u32(self.data, 0x1C)
     assert self.unknown_1 == 0
     
     # Read data header.
-    self.num_nodes = fs.read_u32(data, self.data_header_offset + 0x00)
-    self.node_list_offset = fs.read_u32(data, self.data_header_offset + 0x04) + self.data_header_offset
-    self.total_num_file_entries = fs.read_u32(data, self.data_header_offset + 0x08)
-    self.file_entries_list_offset = fs.read_u32(data, self.data_header_offset + 0x0C) + self.data_header_offset
-    self.string_list_size = fs.read_u32(data, self.data_header_offset + 0x10)
-    self.string_list_offset = fs.read_u32(data, self.data_header_offset + 0x14) + self.data_header_offset
-    self.next_free_file_id = fs.read_u16(data, self.data_header_offset + 0x18)
-    self.keep_file_ids_synced_with_indexes = fs.read_u8(data, self.data_header_offset + 0x1A)
-    self.unknown_2 = fs.read_u8(data, self.data_header_offset + 0x1B)
+    self.num_nodes = fs.read_u32(self.data, self.data_header_offset + 0x00)
+    self.node_list_offset = fs.read_u32(self.data, self.data_header_offset + 0x04) + self.data_header_offset
+    self.total_num_file_entries = fs.read_u32(self.data, self.data_header_offset + 0x08)
+    self.file_entries_list_offset = fs.read_u32(self.data, self.data_header_offset + 0x0C) + self.data_header_offset
+    self.string_list_size = fs.read_u32(self.data, self.data_header_offset + 0x10)
+    self.string_list_offset = fs.read_u32(self.data, self.data_header_offset + 0x14) + self.data_header_offset
+    self.next_free_file_id = fs.read_u16(self.data, self.data_header_offset + 0x18)
+    self.keep_file_ids_synced_with_indexes = fs.read_u8(self.data, self.data_header_offset + 0x1A)
+    self.unknown_2 = fs.read_u8(self.data, self.data_header_offset + 0x1B)
     assert self.unknown_2 == 0
-    self.unknown_3 = fs.read_u32(data, self.data_header_offset + 0x1C)
+    self.unknown_3 = fs.read_u32(self.data, self.data_header_offset + 0x1C)
     assert self.unknown_3 == 0
     
     self.nodes = []
@@ -82,8 +76,8 @@ class RARC:
     
     self.file_entries = []
     for file_index in range(self.total_num_file_entries):
-      file_entry_offset = self.file_entries_list_offset + file_index*FileEntry.ENTRY_SIZE
-      file_entry = FileEntry(self)
+      file_entry_offset = self.file_entries_list_offset + file_index*RARCFileEntry.ENTRY_SIZE
+      file_entry = RARCFileEntry(self)
       file_entry.read(file_entry_offset)
       self.file_entries.append(file_entry)
       
@@ -107,13 +101,13 @@ class RARC:
     root_node.name = "archive"
     self.nodes.append(root_node)
     
-    dot_entry = FileEntry(self)
+    dot_entry = RARCFileEntry(self)
     dot_entry.name = "."
     dot_entry.type = RARCFileAttrType.DIRECTORY
     dot_entry.node = root_node
     dot_entry.parent_node = root_node
     
-    dotdot_entry = FileEntry(self)
+    dotdot_entry = RARCFileEntry(self)
     dotdot_entry.name = ".."
     dotdot_entry.type = RARCFileAttrType.DIRECTORY
     dotdot_entry.node = None
@@ -135,19 +129,19 @@ class RARC:
     node.type = node_type
     node.name = dir_name
     
-    dir_entry = FileEntry(self)
+    dir_entry = RARCFileEntry(self)
     dir_entry.name = dir_name
     dir_entry.type = RARCFileAttrType.DIRECTORY
     dir_entry.node = node
     dir_entry.parent_node = parent_node
     
-    dot_entry = FileEntry(self)
+    dot_entry = RARCFileEntry(self)
     dot_entry.name = "."
     dot_entry.type = RARCFileAttrType.DIRECTORY
     dot_entry.node = node
     dot_entry.parent_node = node
     
-    dotdot_entry = FileEntry(self)
+    dotdot_entry = RARCFileEntry(self)
     dotdot_entry.name = ".."
     dotdot_entry.type = RARCFileAttrType.DIRECTORY
     dotdot_entry.node = parent_node
@@ -164,7 +158,7 @@ class RARC:
     return dir_entry, node
   
   def add_new_file(self, file_name, file_data, node):
-    file_entry = FileEntry(self)
+    file_entry = RARCFileEntry(self)
     
     if not self.keep_file_ids_synced_with_indexes:
       if self.next_free_file_id == 0xFFFF:
@@ -325,8 +319,8 @@ class RARC:
     for file_entry in self.file_entries:
       file_entry.entry_offset = next_file_entry_offset
       self.data.seek(file_entry.entry_offset)
-      self.data.write(b'\0'*FileEntry.ENTRY_SIZE)
-      next_file_entry_offset += FileEntry.ENTRY_SIZE
+      self.data.write(b'\0'*RARCFileEntry.ENTRY_SIZE)
+      next_file_entry_offset += RARCFileEntry.ENTRY_SIZE
     
     # Write the strings for the node names and file entry names.
     fs.align_data_to_nearest(self.data, 0x20)
@@ -463,7 +457,7 @@ class RARC:
         return file_entry
     return None
   
-  def get_file(self, file_name):
+  def get_file(self, file_name: str, file_type: Type[T]) -> T:
     if file_name in self.instantiated_object_files:
       return self.instantiated_object_files[file_name]
     
@@ -471,20 +465,9 @@ class RARC:
     if file_entry is None:
       return None
     
-    for other_file_name, klass in self.FILE_NAME_TO_CLASS.items():
-      if other_file_name == file_name:
-        instance = klass(file_entry)
-        self.instantiated_object_files[file_name] = instance
-        return instance
-    
-    _, file_ext = os.path.splitext(file_name)
-    for other_file_ext, klass in self.FILE_EXT_TO_CLASS.items():
-      if other_file_ext == file_ext:
-        instance = klass(file_entry)
-        self.instantiated_object_files[file_name] = instance
-        return instance
-    
-    raise Exception("Unknown file type: %s" % file_name)
+    file_instance: T = file_type(file_entry)
+    self.instantiated_object_files[file_name] = file_instance
+    return file_instance
 
 class Node:
   ENTRY_SIZE = 0x10
@@ -524,15 +507,18 @@ class Node:
     fs.write_u16(self.rarc.data, self.node_offset+0x0A, self.num_files)
     fs.write_u32(self.rarc.data, self.node_offset+0x0C, self.first_file_index)
 
-class FileEntry:
+class RARCFileEntry(GCLibFileEntry):
   ENTRY_SIZE = 0x14
   
+  data: BytesIO
+  
   def __init__(self, rarc):
+    super().__init__()
+    
     self.rarc = rarc
     
     self.parent_node = None
     self.id = 0xFFFF
-    self.data = None
   
   def read(self, entry_offset):
     self.entry_offset = entry_offset
@@ -570,10 +556,11 @@ class FileEntry:
     else:
       self.type &= ~RARCFileAttrType.DIRECTORY
   
-  def decompress_data_if_necessary(self):
-    if Yaz0.check_is_compressed(self.data):
-      self.data = Yaz0.decompress(self.data)
+  def decompress_data_if_necessary(self) -> bool:
+    was_compressed = super().decompress_data_if_necessary()
+    if was_compressed:
       self.update_compression_flags_from_data()
+    return was_compressed
   
   def update_compression_flags_from_data(self):
     if self.is_dir:
@@ -625,11 +612,3 @@ class RARCFileAttrType(IntFlag):
   PRELOAD_TO_ARAM = 0x20
   LOAD_FROM_DVD   = 0x40
   YAZ0_COMPRESSED = 0x80
-
-class RARCFileEntry(RARC):
-  def __init__(self, file_entry):
-    self.file_entry = file_entry
-    super(RARC, self).__init__()
-    self.read(self.file_entry.data)
-
-RARC.FILE_EXT_TO_CLASS[".arc"] = RARCFileEntry

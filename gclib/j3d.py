@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 from gclib import fs_helpers as fs
 from gclib.bti import BTI
-from gclib.yaz0 import Yaz0
+from gclib.gclib_file import GCLibFile
 from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
 
 IMPLEMENTED_CHUNK_TYPES = [
@@ -22,11 +22,9 @@ IMPLEMENTED_CHUNK_TYPES = [
   "TTK1",
 ]
 
-class J3DFile:
-  def __init__(self, data):
-    if Yaz0.check_is_compressed(data):
-      data = Yaz0.decompress(data)
-    self.data = data
+class J3D(GCLibFile):
+  def __init__(self, file_entry_or_data = None):
+    super().__init__(file_entry_or_data)
     
     self.read()
   
@@ -34,7 +32,7 @@ class J3DFile:
     data = self.data
     
     self.magic = fs.read_str(data, 0, 4)
-    assert self.magic.startswith("J3D")
+    assert self.magic.startswith("J3D"), f"Unknown J3D magic: {self.magic!r}"
     self.file_type = fs.read_str(data, 4, 4)
     self.length = fs.read_u32(data, 8)
     self.num_chunks = fs.read_u32(data, 0x0C)
@@ -101,41 +99,35 @@ class J3DFile:
     fs.write_u32(data, 0xC, self.num_chunks)
     fs.write_u32(data, 0x1C, self.bck_sound_data_offset)
 
-class J3DFileEntry(J3DFile):
-  def __init__(self, file_entry):
-    self.file_entry = file_entry
-    self.file_entry.decompress_data_if_necessary()
-    super(J3DFileEntry, self).__init__(self.file_entry.data)
-
-class BDL(J3DFileEntry):
+class BDL(J3D):
   def __init__(self, file_entry):
     super().__init__(file_entry)
     
     assert self.magic == "J3D2"
     assert self.file_type == "bdl4"
 
-class BMD(J3DFileEntry):
+class BMD(J3D):
   def __init__(self, file_entry):
     super().__init__(file_entry)
     
     assert self.magic == "J3D2"
     assert self.file_type == "bmd3" or self.file_type == "bmd2"
 
-class BMT(J3DFileEntry):
+class BMT(J3D):
   def __init__(self, file_entry):
     super().__init__(file_entry)
     
     assert self.magic == "J3D2"
     assert self.file_type == "bmt3"
 
-class BRK(J3DFileEntry):
+class BRK(J3D):
   def __init__(self, file_entry):
     super().__init__(file_entry)
     
     assert self.magic == "J3D1"
     assert self.file_type == "brk1"
 
-class BTK(J3DFileEntry):
+class BTK(J3D):
   def __init__(self, file_entry):
     super().__init__(file_entry)
     
@@ -1889,13 +1881,3 @@ class ColorAnimation(Animation):
     fs.write_u8(data, offset+2, 0xFF)
     fs.write_u8(data, offset+3, 0xFF)
     offset += 4
-
-try:
-  from gclib.rarc import RARC
-  RARC.FILE_EXT_TO_CLASS[".bdl"] = BDL
-  RARC.FILE_EXT_TO_CLASS[".bmd"] = BMD
-  RARC.FILE_EXT_TO_CLASS[".bmt"] = BMT
-  RARC.FILE_EXT_TO_CLASS[".brk"] = BRK
-  RARC.FILE_EXT_TO_CLASS[".btk"] = BTK
-except ImportError:
-  print(f"Could not register file extension with RARC in file {__file__}")

@@ -4,10 +4,10 @@ from enum import Enum
 
 from gclib import fs_helpers as fs
 from gclib import texture_utils
+from gclib.gclib_file import GCLibFile, GCLibFileEntry
 from gclib.texture_utils import ImageFormat, PaletteFormat
 from gclib.texture_utils import BLOCK_WIDTHS, BLOCK_HEIGHTS, BLOCK_DATA_SIZES
 from gclib.texture_utils import IMAGE_FORMATS_THAT_USE_PALETTES, GREYSCALE_IMAGE_FORMATS, GREYSCALE_PALETTE_FORMATS
-from gclib.yaz0 import Yaz0
 
 class WrapMode(Enum):
   ClampToEdge    = 0
@@ -22,12 +22,15 @@ class FilterMode(Enum):
   LinearMipmapNearest  = 4
   LinearMipmapLinear   = 5
 
-class BTI:
-  def __init__(self, data, header_offset=0):
-    self.data = data
+class BTI(GCLibFile):
+  def __init__(self, file_entry_or_data = None, header_offset=0):
+    if isinstance(file_entry_or_data, GCLibFileEntry):
+      assert header_offset == 0
+    super().__init__(file_entry_or_data)
+    
     self.header_offset = header_offset
     
-    self.read_header(data, header_offset=header_offset)
+    self.read_header(self.data, header_offset=header_offset)
     
     blocks_wide = (self.width + (self.block_width-1)) // self.block_width
     blocks_tall = (self.height + (self.block_height-1)) // self.block_height
@@ -41,10 +44,10 @@ class BTI:
       remaining_mipmaps -= 1
       # Note: We don't actually read the smaller mipmaps, we only read the normal sized one, and when saving recalculate the others by scaling the normal one down.
       # This is to simplify things, but a full implementation would allow reading and saving each mipmap individually (since the mipmaps can actually have different contents).
-    self.image_data = BytesIO(fs.read_bytes(data, header_offset+self.image_data_offset, image_data_size))
+    self.image_data = BytesIO(fs.read_bytes(self.data, header_offset+self.image_data_offset, image_data_size))
     
     palette_data_size = self.num_colors*2
-    self.palette_data = BytesIO(fs.read_bytes(data, header_offset+self.palette_data_offset, palette_data_size))
+    self.palette_data = BytesIO(fs.read_bytes(self.data, header_offset+self.palette_data_offset, palette_data_size))
   
   def read_header(self, data, header_offset=0):
     self.image_format = ImageFormat(fs.read_u8(data, header_offset+0))
@@ -98,6 +101,26 @@ class BTI:
     fs.write_u16(self.data, self.header_offset+0x1A, self.lod_bias)
     
     fs.write_u32(self.data, self.header_offset+0x1C, self.image_data_offset)
+  
+  # Note: This function is for standalone .bti files only (as opposed to textures embedded inside
+  # J3D models/animations).
+  def save_changes(self):
+    # Cut off the image and palette data first since we're replacing this data entirely.
+    self.data.truncate(0x20)
+    self.data.seek(0x20)
+    
+    self.image_data_offset = 0x20
+    self.image_data.seek(0)
+    self.data.write(self.image_data.read())
+    
+    if self.needs_palettes():
+      self.palette_data_offset = 0x20 + fs.data_len(self.image_data)
+      self.palette_data.seek(0)
+      self.data.write(self.palette_data.read())
+    else:
+      self.palette_data_offset = 0
+    
+    self.save_header_changes()
   
   @property
   def block_width(self):
@@ -179,39 +202,3 @@ class BTI:
       return False
     
     return True
-
-class BTIFile(BTI): # For standalone .bti files (as opposed to textures embedded inside J3D models/animations)
-  def __init__(self, data):
-    if Yaz0.check_is_compressed(data):
-      data = Yaz0.decompress(data)
-    super(BTIFile, self).__init__(data)
-  
-  def save_changes(self):
-    # Cut off the image and palette data first since we're replacing this data entirely.
-    self.data.truncate(0x20)
-    self.data.seek(0x20)
-    
-    self.image_data_offset = 0x20
-    self.image_data.seek(0)
-    self.data.write(self.image_data.read())
-    
-    if self.needs_palettes():
-      self.palette_data_offset = 0x20 + fs.data_len(self.image_data)
-      self.palette_data.seek(0)
-      self.data.write(self.palette_data.read())
-    else:
-      self.palette_data_offset = 0
-    
-    self.save_header_changes()
-
-class BTIFileEntry(BTIFile):
-  def __init__(self, file_entry):
-    self.file_entry = file_entry
-    self.file_entry.decompress_data_if_necessary()
-    super(BTIFileEntry, self).__init__(self.file_entry.data)
-
-try:
-  from gclib.rarc import RARC
-  RARC.FILE_EXT_TO_CLASS[".bti"] = BTIFileEntry
-except ImportError:
-  print(f"Could not register file extension with RARC in file {__file__}")

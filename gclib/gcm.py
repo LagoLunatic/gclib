@@ -38,7 +38,7 @@ class GCM:
     self.fnt_offset = self.fst_offset + num_file_entries*0xC
     for file_index in range(num_file_entries):
       file_entry_offset = self.fst_offset + file_index * 0xC
-      file_entry = FileEntry()
+      file_entry = GCMFileEntry()
       file_entry.read(file_index, self.iso_file, file_entry_offset, self.fnt_offset)
       self.file_entries.append(file_entry)
     
@@ -282,7 +282,7 @@ class GCM:
     if not parent_dir_name:
       raise Exception("Cannot add a new directory to the root directory: %s" % dir_path)
     
-    new_dir = FileEntry()
+    new_dir = GCMFileEntry()
     new_dir.is_dir = True
     new_dir.name = new_dir_name
     new_dir.file_path = dir_path
@@ -305,7 +305,7 @@ class GCM:
     dirname = os.path.dirname(file_path)
     basename = os.path.basename(file_path)
     
-    new_file = FileEntry()
+    new_file = GCMFileEntry()
     new_file.name = basename
     new_file.file_path = file_path
     # file_data_offset is used for ordering the files in the new ISO, so we give it a huge value so new files are placed after vanilla files.
@@ -505,7 +505,7 @@ class GCM:
       files_done += 1
       yield(file_entry.file_path, files_done)
 
-class FileEntry:
+class GCMFileEntry:
   def __init__(self):
     self.file_index = None
     

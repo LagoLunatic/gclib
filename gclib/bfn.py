@@ -6,10 +6,11 @@ import struct
 
 from gclib import fs_helpers as fs
 from io import BytesIO
+from gclib.gclib_file import GCLibFile
 from gclib.j3d import J3DChunk
 from gclib.texture_utils import ImageFormat, IMAGE_FORMATS_THAT_USE_PALETTES, decode_image
 
-class BFN:
+class BFN(GCLibFile):
   IMPLEMENTED_CHUNK_TYPES = [
     "INF1",
     "GLY1",
@@ -17,13 +18,15 @@ class BFN:
     "WID1",
   ]
   
-  def __init__(self, data):
-    self.data = data
+  def __init__(self, file_entry_or_data = None):
+    super().__init__(file_entry_or_data)
     
     self.inf1s: list[INF1] = []
     self.gly1s: list[GLY1] = []
     self.map1s: list[MAP1] = []
     self.wid1s: list[WID1] = []
+    
+    self.read()
   
   def read(self):
     self.magic = fs.read_str(self.data, 0, 4)
@@ -353,16 +356,3 @@ class WID1(J3DChunk):
       width_info.read(offset)
       self.code_to_width_info[self.first_code+i] = width_info
       offset += CodeWidthInfo.DATA_SIZE
-
-class BFNFileEntry(BFN):
-  def __init__(self, file_entry):
-    self.file_entry = file_entry
-    self.file_entry.decompress_data_if_necessary()
-    super(BFNFileEntry, self).__init__(self.file_entry.data)
-    self.read()
-
-try:
-  from gclib.rarc import RARC
-  RARC.FILE_EXT_TO_CLASS[".bfn"] = BFNFileEntry
-except ImportError:
-  print(f"Could not register file extension with RARC in file {__file__}")

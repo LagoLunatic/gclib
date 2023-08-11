@@ -8,6 +8,7 @@ __all__ = [
   "bti",
   "dol",
   "fs_helpers",
+  "gclib_file",
   "gcm",
   "gx_enums",
   "j3d",
