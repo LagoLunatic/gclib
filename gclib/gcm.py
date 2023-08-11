@@ -194,8 +194,6 @@ class GCM:
       
       files_done += 1
       yield(relative_file_path, files_done)
-    
-    yield("Done", -1)
   
   def export_disc_to_folder_with_changed_files(self, output_folder_path, only_changed_files=False):
     files_done = 0
@@ -234,8 +232,6 @@ class GCM:
       
       files_done += 1
       yield(file_path, files_done)
-    
-    yield("Done", -1)
   
   def export_disc_to_iso_with_changed_files(self, output_file_path):
     if os.path.realpath(self.iso_path) == os.path.realpath(output_file_path):
@@ -246,18 +242,12 @@ class GCM:
       self.export_system_data_to_iso()
       yield("sys/main.dol", 5) # 5 system files
       
-      generator = self.export_filesystem_to_iso()
-      while True:
-        # Need to use a while loop to go through the generator instead of a for loop, as a for loop would silently exit if a StopIteration error ever happened for any reason.
-        next_progress_text, files_done = next(generator)
-        if files_done == -1:
-          break
+      for next_progress_text, files_done in self.export_filesystem_to_iso():
         yield(next_progress_text, 5+files_done)
       
       self.align_output_iso_to_nearest(2048)
       self.output_iso.close()
       self.output_iso = None
-      yield("Done", -1)
     except Exception:
       print("Error writing GCM, removing failed ISO.")
       self.output_iso.close()
@@ -514,8 +504,6 @@ class GCM:
       
       files_done += 1
       yield(file_entry.file_path, files_done)
-    
-    yield("Done", -1)
 
 class FileEntry:
   def __init__(self):
