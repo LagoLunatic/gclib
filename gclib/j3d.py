@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, bunfoe, field
+from gclib.bunfoe import BUNFOE, Field, bunfoe, field
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
 from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
@@ -769,14 +769,48 @@ class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
   pixel_engine_mode: PixelEngineMode
-  cull_mode        : CullMode = field(indexed_by=(u8, ['mat3', 'cull_mode_list_offset']))
+  cull_mode        : CullMode = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
   
-  def __init__(self, data, mat3):
+  def __init__(self, data, mat3: 'MAT3'):
     super(Material, self).__init__(data)
     self.mat3 = mat3
+  
+  def read_field(self, field: Field, offset: int) -> int:
+    if 'indexed_by' not in field.metadata:
+      return super().read_field(field, offset)
+    
+    index_type, list_attr_name = field.metadata['indexed_by']
+    index = self.read_value(index_type, offset)
+    offset += self.get_byte_size(index_type)
+    
+    list_offset = getattr(self.mat3, list_attr_name)
+    assert isinstance(list_offset, int)
+    value_offset = list_offset + index*self.get_byte_size(field.type)
+    value = self.read_value(field.type, value_offset)
+    
+    setattr(self, field.name, value)
+    return offset
+  
+  def save_field(self, field: Field, offset: int) -> int:
+    if 'indexed_by' not in field.metadata:
+      return super().save_field(field, offset)
+    
+    index_type, list_attr_name = field.metadata['indexed_by']
+    value = getattr(self, field.name)
+    index = self.mat3.queue_indexed_value_write(value, field.type, list_attr_name)
+    self.save_value(index_type, offset, index)
+    offset += self.get_byte_size(index_type)
+    
+    return offset
 
 @bunfoe
 class MAT3(J3DChunk):
+  def __init__(self, data):
+    super().__init__(data)
+    
+    self.queued_values_to_write: dict[str, list] = {}
+    self.queued_list_data_types: dict[str, type] = {}
+  
   def read_chunk_specific_data(self):
     self.material_count = fs.read_u16(self.data, 0x08)
     self.material_data_offset = fs.read_u32(self.data, 0x0C)
@@ -784,7 +818,7 @@ class MAT3(J3DChunk):
     
     self.cull_mode_list_offset = fs.read_u32(self.data, 0x1C)
     
-    self.materials = []
+    self.materials: list[Material] = []
     for mat_index in range(self.material_count):
       remap_index = fs.read_u16(self.data, self.material_remap_table_offset + mat_index*2)
       offset = self.material_data_offset + remap_index*Material.DATA_SIZE
@@ -817,7 +851,32 @@ class MAT3(J3DChunk):
     self.string_table_offset = fs.read_u32(self.data, 0x14)
     self.mat_names = self.read_string_table(self.string_table_offset)
   
+  def queue_indexed_value_write(self, value, data_type: type, list_attr_name: str) -> int:
+    if list_attr_name not in self.queued_values_to_write:
+      self.queued_values_to_write[list_attr_name] = []
+      self.queued_list_data_types[list_attr_name] = data_type
+    if value not in self.queued_values_to_write[list_attr_name]:
+      self.queued_values_to_write[list_attr_name].append(value)
+    return self.queued_values_to_write[list_attr_name].index(value)
+  
   def save_chunk_specific_data(self):
+    # TODO: The remap table needs to be recreated from scratch by checking the equality of all
+    # materials and merging ones that are the same.
+    # For the time being, it just assumes that materials that were duplicates when read are still
+    # duplicates now and saves them over each other.
+    for mat_index, mat in enumerate(self.materials):
+      remap_index = fs.read_u16(self.data, self.material_remap_table_offset + mat_index*2)
+      offset = self.material_data_offset + remap_index*Material.DATA_SIZE
+      mat.save(offset)
+    
+    # TODO: Recalculate the list offsets instead of reusing the original offsets.
+    for list_attr_name, values in self.queued_values_to_write.items():
+      data_type = self.queued_list_data_types[list_attr_name]
+      offset = getattr(self, list_attr_name)
+      for value in values:
+        self.save_value(data_type, offset, value)
+        offset += self.get_byte_size(data_type)
+    
     for i in range(self.num_reg_colors):
       r, g, b, a = self.reg_colors[i]
       fs.write_s16(self.data, self.tev_reg_colors_offset + i*8 + 0, r)

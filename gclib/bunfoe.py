@@ -52,22 +52,8 @@ class BUNFOE:
       offset = self.read_field(field, offset)
   
   def read_field(self, field: Field, offset: int) -> int:
-    if field.indexed_by:
-      index_type, attrs_path_to_list_offset = field.indexed_by
-      index = self.read_value(index_type, offset)
-      offset += self.get_byte_size(index_type)
-      
-      curr = self
-      for attr_name in attrs_path_to_list_offset:
-        curr = getattr(curr, attr_name)
-      list_offset = curr
-      assert isinstance(list_offset, int)
-      value_offset = list_offset + index*self.get_byte_size(field.type)
-      value = self.read_value(field.type, value_offset)
-    else:
-      value = self.read_value(field.type, offset)
-      offset += self.get_byte_size(field.type)
-    
+    value = self.read_value(field.type, offset)
+    offset += self.get_byte_size(field.type)
     setattr(self, field.name, value)
     return offset
   
@@ -107,12 +93,12 @@ class BUNFOE:
   #region Saving
   def save(self, offset: int):
     for field in fields(self):
-      offset = self.save_field(field.type, field.name, offset)
+      offset = self.save_field(field, offset)
   
-  def save_field(self, field_type: Type, field_name: str, offset: int) -> int:
-    value = getattr(self, field_name)
-    self.save_value(field_type, offset, value)
-    offset += self.get_byte_size(field_type)
+  def save_field(self, field: Field, offset: int) -> int:
+    value = getattr(self, field.name)
+    self.save_value(field.type, offset, value)
+    offset += self.get_byte_size(field.type)
     return offset
   
   def save_value(self, field_type: Type, offset: int, value: Any) -> None:
@@ -212,12 +198,11 @@ class Field(dataclasses.Field):
                  
                  # Custom.
                  'ignore',
-                 'indexed_by',
                  'assert_default',
                  )
 
     def __init__(self, default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only, ignore, indexed_by, assert_default):
+                 metadata, kw_only, ignore, assert_default):
         self.name = None
         self.type = None
         self.default = default
@@ -234,7 +219,6 @@ class Field(dataclasses.Field):
         
         # Custom.
         self.ignore = ignore
-        self.indexed_by = indexed_by
         self.assert_default = assert_default
 
     @dataclasses._recursive_repr
@@ -254,15 +238,14 @@ class Field(dataclasses.Field):
                 
                 # Custom.
                 f'ignore={self.ignore!r},'
-                f'indexed_by={self.indexed_by!r},'
                 f'assert_default={self.assert_default!r},'
                 ')')
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
-          ignore=False, indexed_by=None, assert_default=False):
+          ignore=False, assert_default=False):
   return Field(default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, ignore, indexed_by, assert_default)
+               metadata, kw_only, ignore, assert_default)
 
 def fields(class_or_instance):
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
