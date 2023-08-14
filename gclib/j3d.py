@@ -640,11 +640,17 @@ class Joint:
   def save(self, offset):
     pass
 
+class MatrixType(u8, Enum):
+  Single_Matrix = 0x00
+  Billboard     = 0x01
+  Y_Billboard   = 0x02
+  Multi_Matrix  = 0x03
+
 @bunfoe
 class Shape:
   DATA_SIZE = 0x28
   
-  matrix_type             : u8 = 0
+  matrix_type             : MatrixType = MatrixType.Single_Matrix
   _padding_1              : u8 = 0xFF
   matrix_group_count      : u16 = 0
   first_attribute_offset  : u16 = 0

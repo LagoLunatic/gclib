@@ -1,5 +1,6 @@
 import dataclasses
 from dataclasses import MISSING, _EMPTY_METADATA
+from enum import Enum
 from typing import Any, BinaryIO, Sequence, Type, GenericAlias
 import typing
 import types
@@ -30,6 +31,11 @@ class BUNFOE:
       for arg_type in typing.get_args(field_type):
         size += BUNFOE.get_byte_size(arg_type)
       return size
+    elif issubclass(field_type, Enum):
+      for base_class in field_type.__mro__:
+        if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
+          return BUNFOE.get_byte_size(base_class)
+      raise Exception("Enum must inherit from a primitive int subclass.")
     else:
       raise NotImplementedError
   
@@ -50,6 +56,12 @@ class BUNFOE:
       return read_func(self.data, offset)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       return self.read_sequence(field_type, offset)
+    elif issubclass(field_type, Enum):
+      for base_class in field_type.__mro__:
+        if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
+          raw_value = self.read_value(base_class, offset)
+          return field_type(raw_value)
+      raise Exception("Enum must inherit from a primitive int subclass.")
     else:
       raise NotImplementedError
   
@@ -79,6 +91,13 @@ class BUNFOE:
       write_func(self.data, offset, value)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       return self.save_sequence(field_type, offset, value)
+    elif issubclass(field_type, Enum):
+      for base_class in field_type.__mro__:
+        if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
+          raw_value = value.value
+          self.save_value(base_class, offset, raw_value)
+          return
+      raise Exception("Enum must inherit from a primitive int subclass.")
     else:
       raise NotImplementedError
   
