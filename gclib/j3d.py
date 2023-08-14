@@ -332,34 +332,16 @@ GXCompTypeColor_TO_COMPONENT_BYTE_SIZE = {
   GXCompTypeColor.RGBA8 : 1,
 }
 
+@bunfoe
 class VertexFormat:
   DATA_SIZE = 0x10
   
   attribute_type: GXAttr
   component_count_type: GXComponentCount
-  component_type: GXCompType
-  component_shift: int
-  
-  def __init__(self, data):
-    self.data = data
-  
-  def read(self, offset):
-    self.attribute_type = GXAttr(fs.read_u32(self.data, offset))
-    self.component_count_type = GXComponentCount(fs.read_u32(self.data, offset+4))
-    comp_type_raw = fs.read_u32(self.data, offset+8)
-    self.component_shift = fs.read_u8(self.data, offset+0xC)
-    
-    if self.is_color_attr:
-      self.component_type = GXCompTypeColor(comp_type_raw)
-    else:
-      self.component_type = GXCompTypeNumber(comp_type_raw)
-  
-  def save(self, offset):
-    fs.write_u32(self.data, offset+0x0, self.attribute_type.value)
-    fs.write_u32(self.data, offset+0x4, self.component_count_type.value)
-    fs.write_u32(self.data, offset+0x8, self.component_type.value)
-    fs.write_u8(self.data, offset+0xC, self.component_shift)
-    fs.align_data_to_nearest(self.data, 0x10, b'\xff')
+  _component_type: u32 # GXCompType
+  component_shift: u8
+  _padding_1: u8 = 0xFF
+  _padding_2: u16 = 0xFFFF
   
   @property
   def data_offset_index(self):
@@ -368,6 +350,17 @@ class VertexFormat:
   @property
   def is_color_attr(self):
     return self.attribute_type in [GXAttr.Color0, GXAttr.Color1]
+  
+  @property
+  def component_type(self):
+    if self.is_color_attr:
+      return GXCompTypeColor(self._component_type)
+    else:
+      return GXCompTypeNumber(self._component_type)
+  
+  @component_type.setter
+  def component_type(self, value):
+    self._component_type = value.value
   
   @property
   def component_count(self):
@@ -506,6 +499,12 @@ class VTX1(J3DChunk):
     components = []
     for i in range(component_count):
       match comp_type:
+        case GXCompTypeNumber.Unsigned8:
+          components.append(fs.read_u8(self.data, data_offset) / divisor)
+        case GXCompTypeNumber.Signed8:
+          components.append(fs.read_s8(self.data, data_offset) / divisor)
+        case GXCompTypeNumber.Unsigned16:
+          components.append(fs.read_u16(self.data, data_offset) / divisor)
         case GXCompTypeNumber.Signed16:
           components.append(fs.read_s16(self.data, data_offset) / divisor)
         case GXCompTypeNumber.Float32:
@@ -573,6 +572,12 @@ class VTX1(J3DChunk):
     divisor = (1 << comp_shift)
     for component in components:
       match comp_type:
+        case GXCompTypeNumber.Unsigned8:
+          fs.write_u8(self.data, data_offset, round(component*divisor))
+        case GXCompTypeNumber.Signed8:
+          fs.write_s8(self.data, data_offset, round(component*divisor))
+        case GXCompTypeNumber.Unsigned16:
+          fs.write_u16(self.data, data_offset, round(component*divisor))
         case GXCompTypeNumber.Signed16:
           fs.write_s16(self.data, data_offset, round(component*divisor))
         case GXCompTypeNumber.Float32:

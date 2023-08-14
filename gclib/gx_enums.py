@@ -1,6 +1,7 @@
 from enum import Enum
+from gclib.fs_helpers import u32
 
-class GXAttr(Enum):
+class GXAttr(u32, Enum):
   PositionMatrixIndex   = 0x00
   Tex0MatrixIndex       = 0x01
   Tex1MatrixIndex       = 0x02
@@ -29,7 +30,7 @@ class GXAttr(Enum):
   NormalBinormalTangent = 0x19
   NULL                  = 0xFF
 
-class GXComponentCount(Enum):
+class GXComponentCount(u32, Enum):
   Position_XY  = 0x00
   Position_XYZ = 0x01
 
@@ -43,7 +44,7 @@ class GXComponentCount(Enum):
   TexCoord_S  = 0x00
   TexCoord_ST = 0x01
 
-class GXCompType(Enum):
+class GXCompType(u32, Enum):
   pass
 
 class GXCompTypeNumber(GXCompType):
