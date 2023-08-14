@@ -215,7 +215,10 @@ class s16(int):
 class s8(int):
   pass
 
-class RGBA32(int):
+class u16Rot(u16):
+  pass
+
+class RGBA32(u32):
   pass
 
 PRIMITIVE_TYPE_TO_BYTE_SIZE = {

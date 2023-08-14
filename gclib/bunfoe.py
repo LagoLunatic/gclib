@@ -26,6 +26,10 @@ class BUNFOE:
   def get_byte_size(field_type: Type) -> int:
     if field_type in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
       return fs.PRIMITIVE_TYPE_TO_BYTE_SIZE[field_type]
+    elif issubclass(field_type, bool):
+      return BUNFOE.get_byte_size(fs.u8)
+    elif issubclass(field_type, fs.u16Rot):
+      return BUNFOE.get_byte_size(fs.u16)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       size = 0
       for arg_type in typing.get_args(field_type):
@@ -54,6 +58,12 @@ class BUNFOE:
     if field_type in fs.PRIMITIVE_TYPE_TO_READ_FUNC:
       read_func = fs.PRIMITIVE_TYPE_TO_READ_FUNC[field_type]
       return read_func(self.data, offset)
+    elif issubclass(field_type, bool):
+      raw_value = self.read_value(fs.u8, offset)
+      assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
+      return bool(raw_value)
+    elif issubclass(field_type, fs.u16Rot):
+      return self.read_value(fs.u16, offset)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       return self.read_sequence(field_type, offset)
     elif issubclass(field_type, Enum):
@@ -89,6 +99,10 @@ class BUNFOE:
     if field_type in fs.PRIMITIVE_TYPE_TO_WRITE_FUNC:
       write_func = fs.PRIMITIVE_TYPE_TO_WRITE_FUNC[field_type]
       write_func(self.data, offset, value)
+    elif issubclass(field_type, bool):
+      self.save_value(fs.u8, offset, int(value))
+    elif issubclass(field_type, fs.u16Rot):
+      self.save_value(fs.u16, offset, value)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       return self.save_sequence(field_type, offset, value)
     elif issubclass(field_type, Enum):

@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 from gclib import fs_helpers as fs
 from gclib.bunfoe import bunfoe, field
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8
+from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
 from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
@@ -607,38 +607,20 @@ class JNT1(J3DChunk):
   def save_chunk_specific_data(self):
     pass
 
+@bunfoe
 class Joint:
   DATA_SIZE = 0x40
   
-  def __init__(self, data):
-    self.data = data
-  
-  def read(self, offset):
-    self.rotation = (
-      fs.read_u16(self.data, offset+0x10),
-      fs.read_u16(self.data, offset+0x12),
-      fs.read_u16(self.data, offset+0x14),
-    )
-    
-    self.position = (
-      fs.read_float(self.data, offset+0x18),
-      fs.read_float(self.data, offset+0x1C),
-      fs.read_float(self.data, offset+0x20),
-    )
-    
-    self.bounding_box_min = (
-      fs.read_float(self.data, offset+0x28),
-      fs.read_float(self.data, offset+0x2C),
-      fs.read_float(self.data, offset+0x30),
-    )
-    self.bounding_box_max = (
-      fs.read_float(self.data, offset+0x34),
-      fs.read_float(self.data, offset+0x38),
-      fs.read_float(self.data, offset+0x3C),
-    )
-  
-  def save(self, offset):
-    pass
+  matrix_type            : u16                          = 0
+  no_inherit_scale       : bool                         = False
+  _padding_1             : u8                           = 0xFF
+  scale                  : list[float, float, float]    = (0, 0, 0)
+  rotation               : list[u16Rot, u16Rot, u16Rot] = (0, 0, 0)
+  _padding_2             : u16                          = 0xFFFF
+  translation            : list[float, float, float]    = (0, 0, 0)
+  bounding_sphere_radius : float                        = 0
+  bounding_box_min       : list[float, float, float]    = (0, 0, 0)
+  bounding_box_max       : list[float, float, float]    = (0, 0, 0)
 
 class MatrixType(u8, Enum):
   Single_Matrix = 0x00
@@ -665,6 +647,7 @@ class SHP1(J3DChunk):
   def read_chunk_specific_data(self):
     self.shape_count = fs.read_u16(self.data, 0x08)
     self.shape_data_offset = fs.read_u32(self.data, 0x0C)
+    self.name_table_offset = fs.read_u32(self.data, 0x14)
     self.attribute_table_offset = fs.read_u32(self.data, 0x18)
     self.matrix_table_offset = fs.read_u32(self.data, 0x1C)
     self.primitive_data_offset = fs.read_u32(self.data, 0x20)
