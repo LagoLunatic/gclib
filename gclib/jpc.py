@@ -73,8 +73,12 @@ class JPC:
     for texture_index in range(self.num_textures):
       chunk_magic = fs.read_str(self.data, offset, 4)
       assert chunk_magic == "TEX1"
-      texture = TEX1(self.version)
-      texture.read(self.data, offset)
+      
+      size = fs.read_u32(self.data, offset+4)
+      chunk_data = fs.read_sub_data(self.data, offset, size)
+      texture = TEX1(chunk_data, self.version)
+      texture.read(0)
+      
       self.textures.append(texture)
       
       if texture.filename in self.textures_by_filename:
@@ -272,8 +276,12 @@ class Particle:
         chunk_class = globals().get(chunk_magic, None)
       else:
         chunk_class = JPAChunk
-      chunk = chunk_class(self.version)
-      chunk.read(jpc_data, chunk_offset)
+      
+      size = fs.read_u32(jpc_data, chunk_offset+4)
+      chunk_data = fs.read_sub_data(jpc_data, chunk_offset, size)
+      chunk = chunk_class(chunk_data, self.version)
+      chunk.read(0)
+      
       self.chunks.append(chunk)
       self.chunk_by_type[chunk.magic] = chunk
       
@@ -311,8 +319,8 @@ class Particle:
       # TODO: write back all header changes.
 
 class JPAChunk(J3DChunk):
-  def __init__(self, version: JPACVersion):
-    super().__init__()
+  def __init__(self, data, version: JPACVersion):
+    super().__init__(data)
     self.version = version
   
   @property

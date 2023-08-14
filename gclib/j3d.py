@@ -1,17 +1,17 @@
 
-from enum import Enum, IntEnum
+from enum import Enum, Flag, IntEnum
 from io import BytesIO
 from collections import OrderedDict
 
 from gclib import fs_helpers as fs
-from gclib.bunfoe import bunfoe, field
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot
+from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import BUNFOE, bunfoe, field
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
 from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
 
 IMPLEMENTED_CHUNK_TYPES = [
-  #"INF1",
+  "INF1",
   "VTX1",
   "JNT1",
   "SHP1",
@@ -60,8 +60,12 @@ class J3D(GCLibFile):
         chunk_class = globals().get(chunk_magic, None)
       else:
         chunk_class = J3DChunk
-      chunk = chunk_class()
-      chunk.read(data, offset)
+      
+      size = fs.read_u32(data, offset+4)
+      chunk_data = fs.read_sub_data(data, offset, size)
+      chunk = chunk_class(chunk_data)
+      chunk.read(0)
+      
       self.chunks.append(chunk)
       self.chunk_by_type[chunk.magic] = chunk
       
@@ -137,18 +141,17 @@ class BTK(J3D):
 
 
 
-class J3DChunk:
-  def __init__(self):
-    self.magic = None
-    self.size = None
-    self.data = None
+@bunfoe
+class J3DChunk(BUNFOE):
+  magic: MagicStr[4]
+  size: u32
   
-  def read(self, file_data, chunk_offset):
-    self.magic = fs.read_str(file_data, chunk_offset, 4)
-    self.size = fs.read_u32(file_data, chunk_offset+4)
-    
-    file_data.seek(chunk_offset)
-    self.data = BytesIO(file_data.read(self.size))
+  def __init__(self, data):
+    super().__init__(data)
+    self.data = data
+  
+  def read(self, offset):
+    super().read(offset)
     
     self.read_chunk_specific_data()
   
@@ -258,9 +261,12 @@ class INF1(J3DChunk):
       self.print_hierarchy_recursive(node.children, indent=indent+1)
   
   def save_chunk_specific_data(self):
-    pass
+    offset = self.hierarchy_data_offset
+    for node in self.flat_hierarchy:
+      node.save(offset)
+      offset += INF1Node.DATA_SIZE
 
-class INF1NodeType(Enum):
+class INF1NodeType(u16, Enum):
   FINISH      = 0x00
   OPEN_CHILD  = 0x01
   CLOSE_CHILD = 0x02
@@ -268,21 +274,22 @@ class INF1NodeType(Enum):
   MATERIAL    = 0x11
   SHAPE       = 0x12
 
-class INF1Node:
+@bunfoe
+class INF1Node(BUNFOE):
   DATA_SIZE = 4
   
-  def __init__(self, data):
-    self.data = data
+  type: INF1NodeType
+  index: u16
   
-  def read(self, offset):
-    self.type = INF1NodeType(fs.read_u16(self.data, offset+0x00))
-    self.index = fs.read_u16(self.data, offset+0x02)
-    
+  def __init__(self, data):
+    super(INF1Node, self).__init__(data)
     self.parent = None
     self.children = []
   
-  def save(self, offset):
-    pass
+  def read(self, offset):
+    super(INF1Node, self).read(offset)
+    self.parent = None
+    self.children = []
 
 
 class VTX1DataOffsetIndex(IntEnum):
@@ -333,7 +340,7 @@ GXCompTypeColor_TO_COMPONENT_BYTE_SIZE = {
 }
 
 @bunfoe
-class VertexFormat:
+class VertexFormat(BUNFOE):
   DATA_SIZE = 0x10
   
   attribute_type: GXAttr
@@ -613,7 +620,7 @@ class JNT1(J3DChunk):
     pass
 
 @bunfoe
-class Joint:
+class Joint(BUNFOE):
   DATA_SIZE = 0x40
   
   matrix_type            : u16                          = 0
@@ -634,7 +641,7 @@ class MatrixType(u8, Enum):
   Multi_Matrix  = 0x03
 
 @bunfoe
-class Shape:
+class Shape(BUNFOE):
   DATA_SIZE = 0x28
   
   matrix_type             : MatrixType = MatrixType.Single_Matrix
@@ -746,8 +753,45 @@ class TEX1(J3DChunk):
     fs.write_u32(self.data, 0x10, self.string_table_offset)
     self.write_string_table(self.string_table_offset, self.texture_names)
 
+class PixelEngineMode(u8, Enum):
+  Opaque      = 0x01
+  Alpha_Test  = 0x02
+  Translucent = 0x04
+
+class CullMode(u32, Enum):
+  Cull_None  = 0x00
+  Cull_Front = 0x01
+  Cull_Back  = 0x02
+  Cull_All   = 0x03
+
+@bunfoe
+class Material(BUNFOE):
+  DATA_SIZE = 0x14C
+  
+  pixel_engine_mode: PixelEngineMode
+  cull_mode        : CullMode = field(indexed_by=(u8, ['mat3', 'cull_mode_list_offset']))
+  
+  def __init__(self, data, mat3):
+    super(Material, self).__init__(data)
+    self.mat3 = mat3
+
+@bunfoe
 class MAT3(J3DChunk):
   def read_chunk_specific_data(self):
+    self.material_count = fs.read_u16(self.data, 0x08)
+    self.material_data_offset = fs.read_u32(self.data, 0x0C)
+    self.material_remap_table_offset = fs.read_u32(self.data, 0x10)
+    
+    self.cull_mode_list_offset = fs.read_u32(self.data, 0x1C)
+    
+    self.materials = []
+    for mat_index in range(self.material_count):
+      remap_index = fs.read_u16(self.data, self.material_remap_table_offset + mat_index*2)
+      offset = self.material_data_offset + remap_index*Material.DATA_SIZE
+      mat = Material(self.data, self)
+      mat.read(offset)
+      self.materials.append(mat)
+    
     self.tev_reg_colors_offset = fs.read_u32(self.data, 0x50)
     self.tev_konst_colors_offset = fs.read_u32(self.data, 0x54)
     self.tev_stages_offset = fs.read_u32(self.data, 0x58)

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import dataclasses
 from dataclasses import MISSING, _EMPTY_METADATA
 from enum import Enum
@@ -6,9 +7,9 @@ import typing
 import types
 
 from gclib import fs_helpers as fs
+from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
 # TODO: implement ignore field argument.
-# TODO: implement indexed_by field argument.
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 
 class BUNFOE:
@@ -27,9 +28,11 @@ class BUNFOE:
     if field_type in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
       return fs.PRIMITIVE_TYPE_TO_BYTE_SIZE[field_type]
     elif issubclass(field_type, bool):
-      return BUNFOE.get_byte_size(fs.u8)
-    elif issubclass(field_type, fs.u16Rot):
-      return BUNFOE.get_byte_size(fs.u16)
+      return BUNFOE.get_byte_size(u8)
+    elif issubclass(field_type, u16Rot):
+      return BUNFOE.get_byte_size(u16)
+    elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
+      return typing.get_args(field_type)[0]
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       size = 0
       for arg_type in typing.get_args(field_type):
@@ -46,12 +49,26 @@ class BUNFOE:
   #region Reading
   def read(self, offset: int):
     for field in fields(self):
-      offset = self.read_field(field.type, field.name, offset)
+      offset = self.read_field(field, offset)
   
-  def read_field(self, field_type: Type, field_name: str, offset: int) -> int:
-    value = self.read_value(field_type, offset)
-    setattr(self, field_name, value)
-    offset += self.get_byte_size(field_type)
+  def read_field(self, field: Field, offset: int) -> int:
+    if field.indexed_by:
+      index_type, attrs_path_to_list_offset = field.indexed_by
+      index = self.read_value(index_type, offset)
+      offset += self.get_byte_size(index_type)
+      
+      curr = self
+      for attr_name in attrs_path_to_list_offset:
+        curr = getattr(curr, attr_name)
+      list_offset = curr
+      assert isinstance(list_offset, int)
+      value_offset = list_offset + index*self.get_byte_size(field.type)
+      value = self.read_value(field.type, value_offset)
+    else:
+      value = self.read_value(field.type, offset)
+      offset += self.get_byte_size(field.type)
+    
+    setattr(self, field.name, value)
     return offset
   
   def read_value(self, field_type: Type, offset: int) -> Any:
@@ -59,11 +76,14 @@ class BUNFOE:
       read_func = fs.PRIMITIVE_TYPE_TO_READ_FUNC[field_type]
       return read_func(self.data, offset)
     elif issubclass(field_type, bool):
-      raw_value = self.read_value(fs.u8, offset)
+      raw_value = self.read_value(u8, offset)
       assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
       return bool(raw_value)
-    elif issubclass(field_type, fs.u16Rot):
-      return self.read_value(fs.u16, offset)
+    elif issubclass(field_type, u16Rot):
+      return self.read_value(u16, offset)
+    elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
+      str_len = typing.get_args(field_type)[0]
+      return fs.read_str(self.data, offset, str_len)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       return self.read_sequence(field_type, offset)
     elif issubclass(field_type, Enum):
@@ -100,11 +120,17 @@ class BUNFOE:
       write_func = fs.PRIMITIVE_TYPE_TO_WRITE_FUNC[field_type]
       write_func(self.data, offset, value)
     elif issubclass(field_type, bool):
-      self.save_value(fs.u8, offset, int(value))
-    elif issubclass(field_type, fs.u16Rot):
-      self.save_value(fs.u16, offset, value)
+      self.save_value(u8, offset, int(value))
+    elif issubclass(field_type, u16Rot):
+      self.save_value(u16, offset, value)
+    elif isinstance(field_type, GenericAlias) and field_type.__origin__ == FixedStr:
+      str_len = typing.get_args(field_type)[0]
+      fs.write_str(self.data, offset, str_len)
+    elif isinstance(field_type, GenericAlias) and field_type.__origin__ == MagicStr:
+      str_len = typing.get_args(field_type)[0]
+      fs.write_magic_str(self.data, offset, str_len)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
-      return self.save_sequence(field_type, offset, value)
+      self.save_sequence(field_type, offset, value)
     elif issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
@@ -125,17 +151,23 @@ class BUNFOE:
 def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                    match_args, kw_only, slots, weakref_slot):
   
-  if BUNFOE not in cls.__bases__:
-    # Modify the class to inherit from BUNFOE.
-    if cls.__bases__ == (object,):
-      cls_bases = (BUNFOE,)
-    else:
-      cls_bases = cls.__bases__ + (BUNFOE,)
-    cls_dict = dict(cls.__dict__)
-    qualname = getattr(cls, '__qualname__', None)
-    cls = type(cls.__name__, cls_bases, cls_dict)
-    if qualname is not None:
-        cls.__qualname__ = qualname
+  # if BUNFOE not in cls.__bases__:
+  #   # Modify the class to inherit from BUNFOE.
+  #   if cls.__bases__ == (object,):
+  #     cls_bases = (BUNFOE,)
+  #   else:
+  #     cls_bases = cls.__bases__ + (BUNFOE,)
+  #   cls_dict = dict(cls.__dict__)
+  #   qualname = getattr(cls, '__qualname__', None)
+  #   cls = type(cls.__name__, cls_bases, cls_dict)
+  #   if qualname is not None:
+  #       cls.__qualname__ = qualname
+  
+  cls_annotations = cls.__dict__.get('__annotations__', {})
+  for field_name, field_type in cls_annotations.items():
+    default = getattr(cls, field_name, MISSING)
+    if not isinstance(default, Field):
+      setattr(cls, field_name, field(default=default))
   
   cls = dataclasses._process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                                    match_args, kw_only, slots, weakref_slot)
@@ -221,9 +253,9 @@ class Field(dataclasses.Field):
                 f'_field_type={self._field_type},'
                 
                 # Custom.
-                f'kw_only={self.ignore!r},'
-                f'kw_only={self.indexed_by!r},'
-                f'kw_only={self.assert_default!r},'
+                f'ignore={self.ignore!r},'
+                f'indexed_by={self.indexed_by!r},'
+                f'assert_default={self.assert_default!r},'
                 ')')
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
@@ -233,4 +265,8 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
                metadata, kw_only, ignore, indexed_by, assert_default)
 
 def fields(class_or_instance):
+  if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
+    raise TypeError(f'{class_or_instance} does not inherit from BUNFOE') from None
+  if not hasattr(class_or_instance, dataclasses._FIELDS):
+    raise TypeError(f'{class_or_instance} does not use the @bunfoe decorator') from None
   return dataclasses.fields(class_or_instance)

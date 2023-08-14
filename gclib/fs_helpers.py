@@ -2,6 +2,7 @@
 import struct
 from io import BytesIO
 from typing import BinaryIO
+from types import GenericAlias
 
 PADDING_BYTES = b"This is padding data to alignme"
 
@@ -15,6 +16,10 @@ def data_len(data: BinaryIO) -> int:
 def make_copy_data(data: BinaryIO) -> BytesIO:
   copy_data = read_all_bytes(data)
   return BytesIO(copy_data)
+
+def read_sub_data(data: BinaryIO, offset: int, length: int) -> BytesIO:
+  data.seek(offset)
+  return BytesIO(data.read(length))
 
 
 def read_all_bytes(data: BinaryIO) -> bytes:
@@ -220,6 +225,14 @@ class u16Rot(u16):
 
 class RGBA32(u32):
   pass
+
+class FixedStr(str):
+  def __class_getitem__(cls, klass: type):
+    return GenericAlias(cls, klass)
+
+class MagicStr(str):
+  def __class_getitem__(cls, klass: type):
+    return GenericAlias(cls, klass)
 
 PRIMITIVE_TYPE_TO_BYTE_SIZE = {
   u32  : 4,

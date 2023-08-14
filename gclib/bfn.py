@@ -45,8 +45,12 @@ class BFN(GCLibFile):
         chunk_class = globals().get(chunk_magic, None)
       else:
         chunk_class = J3DChunk
-      chunk = chunk_class()
-      chunk.read(self.data, offset)
+      
+      size = fs.read_u32(self.data, offset+4)
+      chunk_data = fs.read_sub_data(self.data, offset, size)
+      chunk = chunk_class(chunk_data)
+      chunk.read(0)
+      
       self.chunks.append(chunk)
       self.chunks_by_type[chunk.magic].append(chunk)
       
