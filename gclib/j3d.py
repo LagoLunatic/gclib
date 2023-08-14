@@ -2,9 +2,10 @@
 from enum import Enum, IntEnum
 from io import BytesIO
 from collections import OrderedDict
-from dataclasses import dataclass, field
 
 from gclib import fs_helpers as fs
+from gclib.bunfoe import bunfoe, field
+from gclib.fs_helpers import u32, u16, u8, s32, s16, s8
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
 from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
@@ -331,11 +332,9 @@ GXCompTypeColor_TO_COMPONENT_BYTE_SIZE = {
   GXCompTypeColor.RGBA8 : 1,
 }
 
-@dataclass
 class VertexFormat:
   DATA_SIZE = 0x10
   
-  data: BytesIO = field(repr=False)
   attribute_type: GXAttr
   component_count_type: GXComponentCount
   component_type: GXCompType
@@ -627,12 +626,12 @@ class Joint:
       fs.read_float(self.data, offset+0x20),
     )
     
-    self.bbox_min = (
+    self.bounding_box_min = (
       fs.read_float(self.data, offset+0x28),
       fs.read_float(self.data, offset+0x2C),
       fs.read_float(self.data, offset+0x30),
     )
-    self.bbox_max = (
+    self.bounding_box_max = (
       fs.read_float(self.data, offset+0x34),
       fs.read_float(self.data, offset+0x38),
       fs.read_float(self.data, offset+0x3C),
@@ -640,6 +639,21 @@ class Joint:
   
   def save(self, offset):
     pass
+
+@bunfoe
+class Shape:
+  DATA_SIZE = 0x28
+  
+  matrix_type             : u8 = 0
+  _padding_1              : u8 = 0xFF
+  matrix_group_count      : u16 = 0
+  first_attribute_offset  : u16 = 0
+  first_matrix_data_index : u16 = 0
+  first_matrix_group_index: u16 = 0
+  _padding_2              : u16 = 0xFFFF
+  bounding_sphere_radius  : float = 0
+  bounding_box_min        : list[float, float, float] = (0, 0, 0)
+  bounding_box_max        : list[float, float, float] = (0, 0, 0)
 
 class SHP1(J3DChunk):
   def read_chunk_specific_data(self):
@@ -659,34 +673,10 @@ class SHP1(J3DChunk):
       shape_offset += Shape.DATA_SIZE
   
   def save_chunk_specific_data(self):
-    pass
-
-class Shape:
-  DATA_SIZE = 0x28
-  
-  def __init__(self, data):
-    self.data = data
-  
-  def read(self, offset):
-    self.mtx_group_count = fs.read_u16(self.data, offset+0x02)
-    self.first_attribute_offset = fs.read_u16(self.data, offset+0x04)
-    self.first_mtx_group_index = fs.read_u16(self.data, offset+0x08)
-    
-    self.bounding_sphere_radius = fs.read_float(self.data, offset+0x0C)
-    
-    self.bbox_min = (
-      fs.read_float(self.data, offset+0x10),
-      fs.read_float(self.data, offset+0x14),
-      fs.read_float(self.data, offset+0x18),
-    )
-    self.bbox_max = (
-      fs.read_float(self.data, offset+0x1C),
-      fs.read_float(self.data, offset+0x20),
-      fs.read_float(self.data, offset+0x24),
-    )
-  
-  def save(self, offset):
-    pass
+    shape_offset = self.shape_data_offset
+    for shape in self.shapes:
+      shape.save(shape_offset)
+      shape_offset += Shape.DATA_SIZE
 
 class TEX1(J3DChunk):
   def read_chunk_specific_data(self):

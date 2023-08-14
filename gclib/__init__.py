@@ -6,6 +6,7 @@ __all__ = [
   "bfn",
   "bmg",
   "bti",
+  "bunfoe",
   "dol",
   "fs_helpers",
   "gclib_file",

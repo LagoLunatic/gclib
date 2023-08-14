@@ -195,3 +195,65 @@ def align_data_to_nearest(data: BinaryIO, size, padding_bytes=PADDING_BYTES):
 def pad_offset_to_nearest(offset: int, size: int) -> int:
   next_offset = offset + (size - offset % size) % size
   return next_offset
+
+
+class u32(int):
+  pass
+
+class u16(int):
+  pass
+
+class u8(int):
+  pass
+
+class s32(int):
+  pass
+
+class s16(int):
+  pass
+
+class s8(int):
+  pass
+
+class RGBA32(int):
+  pass
+
+PRIMITIVE_TYPE_TO_BYTE_SIZE = {
+  u32  : 4,
+  u16  : 2,
+  u8   : 1,
+  s32  : 4,
+  s16  : 2,
+  s8   : 1,
+  float: 4,
+}
+
+PRIMITIVE_TYPE_TO_READ_FUNC = {
+  u32  : read_u32,
+  u16  : read_u16,
+  u8   : read_u8,
+  s32  : read_s32,
+  s16  : read_s16,
+  s8   : read_s8,
+  float: read_float,
+}
+
+PRIMITIVE_TYPE_TO_WRITE_FUNC = {
+  u32  : write_u32,
+  u16  : write_u16,
+  u8   : write_u8,
+  s32  : write_s32,
+  s16  : write_s16,
+  s8   : write_s8,
+  float: write_float,
+}
+
+PRIMITIVE_TYPE_IS_SIGNED = {
+  u32  : False,
+  u16  : False,
+  u8   : False,
+  s32  : True,
+  s16  : True,
+  s8   : True,
+  float: True,
+}
