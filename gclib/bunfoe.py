@@ -9,8 +9,10 @@ import types
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
-# TODO: implement ignore field argument.
+# TODO: implement ignore field argument to avoid automatically reading/writing certain fields.
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
+# TODO: implement read_only attribute (for stuff like magic strings)
+# TODO: implement hidden attribute (for e.g. array length fields)
 
 class BUNFOE:
   """Binary-UNpacking Field-Owning Entity.
@@ -43,6 +45,13 @@ class BUNFOE:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           return BUNFOE.get_byte_size(base_class)
       raise Exception("Enum must inherit from a primitive int subclass.")
+    elif issubclass(field_type, BUNFOE):
+      # NOTE: This currently relies on the class defining all fields, including any trailing
+      # padding. Maybe in the future it could double check a DATA_SIZE/BYTE_SIZE constant.
+      size = 0
+      for subfield in fields(field_type):
+        size += BUNFOE.get_byte_size(subfield.type)
+      return size
     else:
       raise NotImplementedError
   
@@ -58,6 +67,7 @@ class BUNFOE:
     return offset
   
   def read_value(self, field_type: Type, offset: int) -> Any:
+    # TODO: instead of Any use TypeVar here
     if field_type in fs.PRIMITIVE_TYPE_TO_READ_FUNC:
       read_func = fs.PRIMITIVE_TYPE_TO_READ_FUNC[field_type]
       return read_func(self.data, offset)
@@ -78,6 +88,10 @@ class BUNFOE:
           raw_value = self.read_value(base_class, offset)
           return field_type(raw_value)
       raise Exception("Enum must inherit from a primitive int subclass.")
+    elif issubclass(field_type, BUNFOE):
+      value = field_type(self.data)
+      value.read(offset)
+      return value
     else:
       raise NotImplementedError
   
@@ -102,6 +116,8 @@ class BUNFOE:
     return offset
   
   def save_value(self, field_type: Type, offset: int, value: Any) -> None:
+    # TODO: instead of Any use TypeVar here
+    # TODO: assert that value is an instance of field_type?
     if field_type in fs.PRIMITIVE_TYPE_TO_WRITE_FUNC:
       write_func = fs.PRIMITIVE_TYPE_TO_WRITE_FUNC[field_type]
       write_func(self.data, offset, value)
@@ -124,6 +140,8 @@ class BUNFOE:
           self.save_value(base_class, offset, raw_value)
           return
       raise Exception("Enum must inherit from a primitive int subclass.")
+    elif issubclass(field_type, BUNFOE):
+      value.save(offset)
     else:
       raise NotImplementedError
   

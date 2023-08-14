@@ -1,5 +1,5 @@
 from enum import Enum
-from gclib.fs_helpers import u32
+from gclib.fs_helpers import u32, u8
 
 class GXAttr(u32, Enum):
   PositionMatrixIndex   = 0x00
@@ -61,3 +61,13 @@ class GXCompTypeColor(GXCompType):
   RGBA4  = 0x03
   RGBA6  = 0x04
   RGBA8  = 0x05
+
+class GXCompareType(u8, Enum):
+  Never         = 0
+  Less          = 1
+  Equal         = 2
+  Less_Equal    = 3
+  Greater       = 4
+  Not_Equal     = 5
+  Greater_Equal = 6
+  Always        = 7

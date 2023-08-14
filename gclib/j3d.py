@@ -8,7 +8,7 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 from gclib.bunfoe import BUNFOE, Field, bunfoe, field
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
-from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
+from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor, GXCompareType
 
 IMPLEMENTED_CHUNK_TYPES = [
   "INF1",
@@ -765,11 +765,24 @@ class CullMode(u32, Enum):
   Cull_All   = 0x03
 
 @bunfoe
+class ZMode(BUNFOE):
+  depth_test : bool
+  depth_func : GXCompareType
+  depth_write: bool
+  _padding_1 : u8 = 0xFF
+
+@bunfoe
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
-  pixel_engine_mode: PixelEngineMode
-  cull_mode        : CullMode = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
+  pixel_engine_mode: PixelEngineMode = PixelEngineMode.Opaque
+  cull_mode        : CullMode        = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
+  num_color_chans  : u8              = field(metadata={'indexed_by': (u8, 'num_color_chans_list_offset')})
+  num_tex_gens     : u8              = field(metadata={'indexed_by': (u8, 'num_tex_gens_list_offset')})
+  num_tev_stages   : u8              = field(metadata={'indexed_by': (u8, 'num_tev_stages_list_offset')})
+  z_compare        : bool            = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
+  z_mode           : ZMode           = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
+  dither           : bool            = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
   
   def __init__(self, data, mat3: 'MAT3'):
     super(Material, self).__init__(data)
@@ -805,6 +818,39 @@ class Material(BUNFOE):
 
 @bunfoe
 class MAT3(J3DChunk):
+  material_count                 : u16
+  _padding_1                     : u16 = 0xFFFF
+  material_data_offset           : u32
+  material_remap_table_offset    : u32
+  string_table_offset            : u32
+  indirect_list_offset           : u32
+  cull_mode_list_offset          : u32
+  mat_color_list_offset          : u32
+  num_color_chans_list_offset    : u32
+  color_channel_list_offset      : u32
+  ambient_color_list_offset      : u32
+  light_list_offset              : u32
+  num_tex_gens_list_offset       : u32
+  tex_gen_list_offset            : u32
+  post_tex_gen_list_offset       : u32
+  tex_matrix_list_offset         : u32
+  post_tex_matrix_list_offset    : u32
+  texture_remap_table_offset     : u32
+  tev_order_list_offset          : u32
+  tev_color_list_offset          : u32
+  tev_konst_color_list_offset    : u32
+  num_tev_stages_list_offset     : u32
+  tev_stage_list_offset          : u32
+  tev_swap_mode_list_offset      : u32
+  tev_swap_mode_table_list_offset: u32
+  fog_list_offset                : u32
+  alpha_compare_list_offset      : u32
+  blend_mode_list_offset         : u32
+  z_mode_list_offset             : u32
+  z_compare_list_offset          : u32
+  dither_list_offset             : u32
+  nbt_scale_list_offset          : u32
+  
   def __init__(self, data):
     super().__init__(data)
     
@@ -812,11 +858,7 @@ class MAT3(J3DChunk):
     self.queued_list_data_types: dict[str, type] = {}
   
   def read_chunk_specific_data(self):
-    self.material_count = fs.read_u16(self.data, 0x08)
-    self.material_data_offset = fs.read_u32(self.data, 0x0C)
-    self.material_remap_table_offset = fs.read_u32(self.data, 0x10)
-    
-    self.cull_mode_list_offset = fs.read_u32(self.data, 0x1C)
+    BUNFOE.read(self, 0)
     
     self.materials: list[Material] = []
     for mat_index in range(self.material_count):
@@ -848,7 +890,6 @@ class MAT3(J3DChunk):
       a = fs.read_u8(self.data, self.tev_konst_colors_offset + i*4 + 3)
       self.konst_colors.append((r, g, b, a))
     
-    self.string_table_offset = fs.read_u32(self.data, 0x14)
     self.mat_names = self.read_string_table(self.string_table_offset)
   
   def queue_indexed_value_write(self, value, data_type: type, list_attr_name: str) -> int:
