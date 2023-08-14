@@ -74,7 +74,7 @@ class J3D(GCLibFile):
       
       offset += chunk.size
   
-  def save_changes(self):
+  def save(self):
     data = self.data
     
     # Cut off the chunk data first since we're replacing this data entirely.
@@ -82,7 +82,7 @@ class J3D(GCLibFile):
     data.seek(0x20)
     
     for chunk in self.chunks:
-      chunk.save_changes()
+      chunk.save()
       
       chunk.data.seek(0)
       chunk_data = chunk.data.read()
@@ -158,7 +158,7 @@ class J3DChunk(BUNFOE):
   def read_chunk_specific_data(self):
     pass
   
-  def save_changes(self):
+  def save(self):
     self.save_chunk_specific_data()
     
     # Pad the size of this chunk.
@@ -851,7 +851,7 @@ class MDL3(J3DChunk):
   
   def save_chunk_specific_data(self):
     for entry in self.entries:
-      entry.save_changes()
+      entry.save()
       
       entry.data.seek(0)
       entry_data = entry.data.read()
@@ -887,7 +887,7 @@ class MDLEntry:
       else:
         raise Exception("Invalid MDL3 command type: %02X" % command_type)
   
-  def save_changes(self):
+  def save(self):
     offset = 0
     for command in self.bp_commands:
       offset = command.save(offset)
@@ -1376,7 +1376,7 @@ class TRK1(J3DChunk):
     if not reg_animations:
       reg_color_anims_offset = 0
     for anim in reg_animations:
-      anim.save_changes(self.data, offset, reg_r_track_data, reg_g_track_data, reg_b_track_data, reg_a_track_data)
+      anim.save(self.data, offset, reg_r_track_data, reg_g_track_data, reg_b_track_data, reg_a_track_data)
       offset += ColorAnimation.DATA_SIZE
     
     fs.align_data_to_nearest(self.data, 4)
@@ -1390,7 +1390,7 @@ class TRK1(J3DChunk):
     if not konst_animations:
       konst_color_anims_offset = 0
     for anim in konst_animations:
-      anim.save_changes(self.data, offset, konst_r_track_data, konst_g_track_data, konst_b_track_data, konst_a_track_data)
+      anim.save(self.data, offset, konst_r_track_data, konst_g_track_data, konst_b_track_data, konst_a_track_data)
       offset += ColorAnimation.DATA_SIZE
     
     fs.align_data_to_nearest(self.data, 4)
@@ -1640,7 +1640,7 @@ class TTK1(J3DChunk):
     if not animations:
       anims_offset = 0
     for anim in animations:
-      anim.save_changes(self.data, offset, tex_gen_indexes, center_coords_data, scale_track_data, rotation_track_data, translation_track_data)
+      anim.save(self.data, offset, tex_gen_indexes, center_coords_data, scale_track_data, rotation_track_data, translation_track_data)
       offset += UVAnimation.DATA_SIZE
     
     fs.align_data_to_nearest(self.data, 4)
@@ -1779,7 +1779,7 @@ class AnimationTrack:
       else:
         raise Exception("Invalid tangent type")
   
-  def save_changes(self, data, offset, track_data):
+  def save(self, data, offset, track_data):
     self.count = len(self.keyframes)
     
     this_track_data = []
@@ -1845,7 +1845,7 @@ class Animation:
     return offset
   
   def save_track(self, track_name, data, offset, track_data):
-    self.tracks[track_name].save_changes(data, offset, track_data)
+    self.tracks[track_name].save(data, offset, track_data)
     offset += AnimationTrack.DATA_SIZE
     return offset
   
@@ -1872,7 +1872,7 @@ class UVAnimation(Animation):
     offset = self.read_track("rotation_q",    data, offset, rotation_track_data)
     offset = self.read_track("translation_q", data, offset, translation_track_data)
   
-  def save_changes(self, data, offset, tex_gen_indexes, center_coords_data, scale_track_data, rotation_track_data, translation_track_data):
+  def save(self, data, offset, tex_gen_indexes, center_coords_data, scale_track_data, rotation_track_data, translation_track_data):
     tex_gen_indexes.append(self.tex_gen_index)
     center_coords_data.append(self.center_coords)
     
@@ -1898,7 +1898,7 @@ class ColorAnimation(Animation):
     self.color_id = fs.read_u8(data, offset)
     offset += 4
   
-  def save_changes(self, data, offset, r_track_data, g_track_data, b_track_data, a_track_data):
+  def save(self, data, offset, r_track_data, g_track_data, b_track_data, a_track_data):
     offset = self.save_track("r", data, offset, r_track_data)
     offset = self.save_track("g", data, offset, g_track_data)
     offset = self.save_track("b", data, offset, b_track_data)

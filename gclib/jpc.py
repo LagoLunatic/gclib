@@ -189,7 +189,7 @@ class JPC:
     
     return (num_particles_added, num_particles_overwritten, num_textures_added, num_textures_overwritten)
   
-  def save_changes(self):
+  def save(self):
     self.num_particles = len(self.particles)
     self.num_textures = len(self.textures)
     fs.write_magic_str(self.data, 0, self.magic, 8)
@@ -210,7 +210,7 @@ class JPC:
         texture_id = self.textures.index(texture)
         particle.tdb1.texture_ids.append(texture_id)
       
-      particle.save_changes()
+      particle.save()
       
       particle.data.seek(0)
       particle_data = particle.data.read()
@@ -219,7 +219,7 @@ class JPC:
     fs.align_data_to_nearest(self.data, 0x20, padding_bytes=b'\0')
     
     for texture in self.textures:
-      texture.save_changes()
+      texture.save()
       
       texture.data.seek(0)
       texture_data = texture.data.read()
@@ -295,7 +295,7 @@ class Particle:
     true_size = (chunk_offset - particle_offset)
     return true_size
   
-  def save_changes(self):
+  def save(self):
     # Cut off the chunk data first since we're replacing this data entirely.
     self.data.truncate(PARTICLE_HEADER_SIZE[self.version])
     self.data.seek(PARTICLE_HEADER_SIZE[self.version])
@@ -303,7 +303,7 @@ class Particle:
     self.num_textures = len(self.tdb1.texture_ids)
     
     for chunk in self.chunks:
-      chunk.save_changes()
+      chunk.save()
       
       chunk.data.seek(0)
       chunk_data = chunk.data.read()
@@ -560,7 +560,7 @@ class TDB1(JPAChunk):
   def save_chunk_specific_data(self):
     self.data.truncate(TDB1_ID_LIST_OFFSET[self.version])
     
-    # Save the texture IDs (which were updated by the JPC's save_changes function).
+    # Save the texture IDs (which were updated by the JPC's save function).
     for texture_id_index, texture_id in enumerate(self.texture_ids):
       fs.write_u16(self.data, TDB1_ID_LIST_OFFSET[self.version] + texture_id_index*2, texture_id)
 
