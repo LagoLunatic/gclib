@@ -11,7 +11,8 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 from gclib.bunfoe import BUNFOE, Field, bunfoe, field
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
-from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor, GXCompareType
+from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
+import gclib.gx_enums as GX
 
 IMPLEMENTED_CHUNK_TYPES = [
   "INF1",
@@ -623,19 +624,39 @@ class JNT1(J3DChunk):
     pass
 
 @bunfoe
+class Vec3float(BUNFOE):
+  x: float
+  y: float
+  z: float
+  
+  @property
+  def xyz(self):
+    return (self.x, self.y, self.z)
+
+@bunfoe
+class Vec3u16Rot(BUNFOE):
+  x: u16Rot
+  y: u16Rot
+  z: u16Rot
+  
+  @property
+  def xyz(self):
+    return (self.x, self.y, self.z)
+
+@bunfoe
 class Joint(BUNFOE):
   DATA_SIZE = 0x40
   
-  matrix_type            : u16                          = 0
-  no_inherit_scale       : bool                         = False
-  _padding_1             : u8                           = 0xFF
-  scale                  : list[float, float, float]    = (0, 0, 0)
-  rotation               : list[u16Rot, u16Rot, u16Rot] = (0, 0, 0)
-  _padding_2             : u16                          = 0xFFFF
-  translation            : list[float, float, float]    = (0, 0, 0)
-  bounding_sphere_radius : float                        = 0
-  bounding_box_min       : list[float, float, float]    = (0, 0, 0)
-  bounding_box_max       : list[float, float, float]    = (0, 0, 0)
+  matrix_type           : u16
+  no_inherit_scale      : bool
+  _padding_1            : u8 = 0xFF
+  scale                 : Vec3float
+  rotation              : Vec3u16Rot
+  _padding_2            : u16 = 0xFFFF
+  translation           : Vec3float
+  bounding_sphere_radius: float
+  bounding_box_min      : Vec3float
+  bounding_box_max      : Vec3float
 
 class MatrixType(u8, Enum):
   Single_Matrix = 0x00
@@ -649,14 +670,14 @@ class Shape(BUNFOE):
   
   matrix_type             : MatrixType = MatrixType.Single_Matrix
   _padding_1              : u8 = 0xFF
-  matrix_group_count      : u16 = 0
-  first_attribute_offset  : u16 = 0
-  first_matrix_data_index : u16 = 0
-  first_matrix_group_index: u16 = 0
+  matrix_group_count      : u16
+  first_attribute_offset  : u16
+  first_matrix_data_index : u16
+  first_matrix_group_index: u16
   _padding_2              : u16 = 0xFFFF
-  bounding_sphere_radius  : float = 0
-  bounding_box_min        : list[float, float, float] = (0, 0, 0)
-  bounding_box_max        : list[float, float, float] = (0, 0, 0)
+  bounding_sphere_radius  : float
+  bounding_box_min        : Vec3float
+  bounding_box_max        : Vec3float
 
 class SHP1(J3DChunk):
   def read_chunk_specific_data(self):
@@ -770,16 +791,26 @@ class CullMode(u32, Enum):
 @bunfoe
 class ZMode(BUNFOE):
   depth_test : bool
-  depth_func : GXCompareType
+  depth_func : GX.CompareType
   depth_write: bool
   _padding_1 : u8 = 0xFF
 
+class RGBA(BUNFOE):
+  pass
+
 @bunfoe(eq=True)
-class RGBA32(BUNFOE):
+class RGBAu8(RGBA):
   r: u8
   g: u8
   b: u8
   a: u8
+
+@bunfoe(eq=True)
+class RGBAs16(RGBA):
+  r: s16
+  g: s16
+  b: s16
+  a: s16
 
 class ColorSrc(u8, Enum):
   Register = 0x00
@@ -813,10 +844,10 @@ class AlphaOp(u8, Enum):
 
 @bunfoe(eq=True)
 class AlphaCompare(BUNFOE):
-  comp0     : GXCompareType
+  comp0     : GX.CompareType
   ref0      : u8
   operation : AlphaOp
-  comp1     : GXCompareType
+  comp1     : GX.CompareType
   ref1      : u8
   _padding_1: u8 = 0xFF
   _padding_2: u16 = 0xFFFF
@@ -826,6 +857,44 @@ class BlendMode(u8, Enum):
   Blend    = 0x01
   Logic    = 0x02
   Subtract = 0x03
+
+@bunfoe(eq=True)
+class TevOrder(BUNFOE):
+  tex_coord_id: GX.TexCoordID
+  tex_map     : u8
+  channel_id  : u8
+  _padding    : u8 = 0xFF
+
+@bunfoe(eq=True)
+class TevStageColorPart(BUNFOE):
+  in_a      : GX.CombineColor
+  in_b      : GX.CombineColor
+  in_c      : GX.CombineColor
+  in_d      : GX.CombineColor
+  op        : GX.TevOp
+  bias      : GX.TevBias
+  scale     : GX.TevScale
+  clamp     : bool
+  reg_id    : GX.Register
+
+@bunfoe(eq=True)
+class TevStageAlphaPart(BUNFOE):
+  in_a  : GX.CombineAlpha
+  in_b  : GX.CombineAlpha
+  in_c  : GX.CombineAlpha
+  in_d  : GX.CombineAlpha
+  op    : GX.TevOp
+  bias  : GX.TevBias
+  scale : GX.TevScale
+  clamp : bool
+  reg_id: GX.Register
+
+@bunfoe(eq=True)
+class TevStage(BUNFOE): 
+  tev_mode  : u8
+  color     : TevStageColorPart
+  alpha     : TevStageAlphaPart
+  _padding_1: u8
 
 @bunfoe
 class Material(BUNFOE):
@@ -839,21 +908,21 @@ class Material(BUNFOE):
   z_compare           : bool                    = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
   z_mode              : ZMode                   = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
   dither              : bool                    = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
-  material_colors     : list[(RGBA32,)*2]       = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')})
+  material_colors     : list[(RGBAu8,)*2]       = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')})
   color_channels      : list[(ColorChannel,)*4] = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
-  ambient_colors      : list[(u16,)*2]
-  light_colors        : list[(u16,)*8]
+  ambient_colors      : list[(RGBAu8,)*2]       = field(metadata={'indexed_by': (u16, 'ambient_color_list_offset')})
+  light_colors        : list[(RGBAu8,)*8]       = field(metadata={'indexed_by': (u16, 'light_color_list_offset')})
   tex_gens            : list[(u16,)*8]
   post_gen_gens       : list[(u16,)*8]
   tex_matrixes        : list[(u16,)*10]
   post_tex_matrixes   : list[(u16,)*20]
-  textures            : list[(u16,)*8]
-  tev_konst_colors    : list[(u16,)*4]
+  textures            : list[(u16,)*8]          #= field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}) # TODO broken, crashes j3dultra
+  tev_konst_colors    : list[(RGBAu8,)*4]       = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')})
   tev_konst_color_sels: list[(u8,)*16]
   tev_konst_alpha_sels: list[(u8,)*16]
-  tev_orders          : list[(u16,)*16]
-  tev_colors          : list[(u16,)*4]
-  tev_stages          : list[(u16,)*16]
+  tev_orders          : list[(TevOrder,)*16]    = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')})
+  tev_colors          : list[(RGBAs16,)*4]      = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')})
+  tev_stages          : list[(TevStage,)*16]    = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')})
   tev_swap_modes      : list[(u16,)*16]
   tev_swap_mode_tables: list[(u16,)*4]
   unknown_1           : list[(u16,)*12]
@@ -887,6 +956,11 @@ class Material(BUNFOE):
     index = self.read_value(index_type, offset)
     offset += self.get_byte_size(index_type)
     
+    assert index_type in fs.PRIMITIVE_TYPE_IS_SIGNED and not fs.PRIMITIVE_TYPE_IS_SIGNED[index_type]
+    max_val = (1 << self.get_byte_size(index_type)*8) - 1
+    if index == max_val:
+      return None, offset
+    
     list_offset = getattr(self.mat3, list_attr_name)
     assert isinstance(list_offset, int)
     value_offset = list_offset + index*self.get_byte_size(value_type)
@@ -910,7 +984,12 @@ class Material(BUNFOE):
   
   def save_indexed_value(self, value_type: Type, offset: int, value: Any, indexed_by: tuple) -> int:
     index_type, list_attr_name = indexed_by
-    index = self.mat3.queue_indexed_value_write(value, value_type, list_attr_name)
+    # if value == -1 and not fs.PRIMITIVE_TYPE_IS_SIGNED[index_type]:
+    if value is None:
+      max_val = (1 << self.get_byte_size(index_type)*8) - 1
+      index = max_val
+    else:
+      index = self.mat3.queue_indexed_value_write(value, value_type, list_attr_name)
     self.save_value(index_type, offset, index)
     offset += self.get_byte_size(index_type)
     
@@ -929,7 +1008,7 @@ class MAT3(J3DChunk):
   num_color_chans_list_offset    : u32
   color_channel_list_offset      : u32
   ambient_color_list_offset      : u32
-  light_list_offset              : u32
+  light_color_list_offset        : u32
   num_tex_gens_list_offset       : u32
   tex_gen_list_offset            : u32
   post_tex_gen_list_offset       : u32

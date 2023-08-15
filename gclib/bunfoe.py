@@ -58,8 +58,13 @@ class BUNFOE:
   
   #region Reading
   def read(self, offset: int):
+    orig_offset = offset
     for field in fields(self):
       offset = self.read_field(field, offset)
+    
+    assert offset >= orig_offset
+    if hasattr(self, "DATA_SIZE"):
+      assert (offset - orig_offset) <= self.DATA_SIZE
   
   def read_field(self, field: Field, offset: int) -> int:
     value = self.read_value(field.type, offset)
