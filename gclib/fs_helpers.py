@@ -223,9 +223,6 @@ class s8(int):
 class u16Rot(u16):
   pass
 
-class RGBA32(u32):
-  pass
-
 class FixedStr(str):
   def __class_getitem__(cls, klass: type):
     return GenericAlias(cls, klass)

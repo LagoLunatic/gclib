@@ -2,7 +2,8 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import MISSING, _EMPTY_METADATA
 from enum import Enum
-from typing import Any, BinaryIO, Sequence, Type, GenericAlias
+from typing import Any, BinaryIO, Sequence, Type
+from types import GenericAlias
 import typing
 import types
 
@@ -73,7 +74,9 @@ class BUNFOE:
       return read_func(self.data, offset)
     elif issubclass(field_type, bool):
       raw_value = self.read_value(u8, offset)
-      assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
+      # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
+      if raw_value not in [0, 1]:
+        print(f"Boolean should be zero or one, but got value: {raw_value}")
       return bool(raw_value)
     elif issubclass(field_type, u16Rot):
       return self.read_value(u16, offset)
