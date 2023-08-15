@@ -805,20 +805,62 @@ class ColorChannel(BUNFOE):
   ambient_color_src   : ColorSrc
   _padding_1          : u16
 
+class AlphaOp(u8, Enum): 
+  AND  = 0x00
+  OR   = 0x01
+  XOR  = 0x02
+  XNOR = 0x03
+
+@bunfoe(eq=True)
+class AlphaCompare(BUNFOE):
+  comp0     : GXCompareType
+  ref0      : u8
+  operation : AlphaOp
+  comp1     : GXCompareType
+  ref1      : u8
+  _padding_1: u8 = 0xFF
+  _padding_2: u16 = 0xFFFF
+
+class BlendMode(u8, Enum):
+  None_    = 0x00
+  Blend    = 0x01
+  Logic    = 0x02
+  Subtract = 0x03
+
 @bunfoe
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
-  pixel_engine_mode : PixelEngineMode         = PixelEngineMode.Opaque
-  cull_mode         : CullMode                = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
-  num_color_chans   : u8                      = field(metadata={'indexed_by': (u8, 'num_color_chans_list_offset')})
-  num_tex_gens      : u8                      = field(metadata={'indexed_by': (u8, 'num_tex_gens_list_offset')})
-  num_tev_stages    : u8                      = field(metadata={'indexed_by': (u8, 'num_tev_stages_list_offset')})
-  z_compare         : bool                    = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
-  z_mode            : ZMode                   = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
-  dither            : bool                    = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
-  material_colors   : list[(RGBA32,)*2]       = field(metadata={'indexed_by': (u8, 'mat_color_list_offset')})
-  color_channels    : list[(ColorChannel,)*4] = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
+  pixel_engine_mode   : PixelEngineMode         = PixelEngineMode.Opaque
+  cull_mode           : CullMode                = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
+  num_color_chans     : u8                      = field(metadata={'indexed_by': (u8, 'num_color_chans_list_offset')})
+  num_tex_gens        : u8                      = field(metadata={'indexed_by': (u8, 'num_tex_gens_list_offset')})
+  num_tev_stages      : u8                      = field(metadata={'indexed_by': (u8, 'num_tev_stages_list_offset')})
+  z_compare           : bool                    = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
+  z_mode              : ZMode                   = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
+  dither              : bool                    = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
+  material_colors     : list[(RGBA32,)*2]       = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')})
+  color_channels      : list[(ColorChannel,)*4] = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
+  ambient_colors      : list[(u16,)*2]
+  light_colors        : list[(u16,)*8]
+  tex_gens            : list[(u16,)*8]
+  post_gen_gens       : list[(u16,)*8]
+  tex_matrixes        : list[(u16,)*10]
+  post_tex_matrixes   : list[(u16,)*20]
+  textures            : list[(u16,)*8]
+  tev_konst_colors    : list[(u16,)*4]
+  tev_konst_color_sels: list[(u8,)*16]
+  tev_konst_alpha_sels: list[(u8,)*16]
+  tev_orders          : list[(u16,)*16]
+  tev_colors          : list[(u16,)*4]
+  tev_stages          : list[(u16,)*16]
+  tev_swap_modes      : list[(u16,)*16]
+  tev_swap_mode_tables: list[(u16,)*4]
+  unknown_1           : list[(u16,)*12]
+  fog_info            : u16
+  alpha_compare       : AlphaCompare            = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
+  blend_mode          : BlendMode               = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
+  unknown_2           : u16
   
   def __init__(self, data, mat3: 'MAT3'):
     super(Material, self).__init__(data)
