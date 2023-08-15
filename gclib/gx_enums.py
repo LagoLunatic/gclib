@@ -150,3 +150,64 @@ class Register(u8, Enum):
   REG0 = 0x01
   REG1 = 0x02
   REG2 = 0x03
+
+class TexGenType(u8, Enum):
+  MTX3x4 = 0x00
+  MTX2x4 = 0x01
+  BUMP0  = 0x02
+  BUMP1  = 0x03
+  BUMP2  = 0x04
+  BUMP3  = 0x05
+  BUMP4  = 0x06
+  BUMP5  = 0x07
+  BUMP6  = 0x08
+  BUMP7  = 0x09
+  SRTG   = 0x0A
+
+class TexGenSrc(u8, Enum):
+  POS       = 0x00
+  NRM       = 0x01
+  BINRM     = 0x02
+  TANGENT   = 0x03
+  TEX0      = 0x04
+  TEX1      = 0x05
+  TEX2      = 0x06
+  TEX3      = 0x07
+  TEX4      = 0x08
+  TEX5      = 0x09
+  TEX6      = 0x0A
+  TEX7      = 0x0B
+  TEXCOORD0 = 0x0C
+  TEXCOORD1 = 0x0D
+  TEXCOORD2 = 0x0E
+  TEXCOORD3 = 0x0F
+  TEXCOORD4 = 0x10
+  TEXCOORD5 = 0x11
+  TEXCOORD6 = 0x12
+  COLOR0    = 0x13
+  COLOR1    = 0x14
+
+class TexGenMatrix(u8, Enum):
+  IDENTITY = 60
+  TEXMTX0  = 30
+  TEXMTX1  = 33
+  TEXMTX2  = 36
+  TEXMTX3  = 39
+  TEXMTX4  = 42
+  TEXMTX5  = 45
+  TEXMTX6  = 48
+  TEXMTX7  = 51
+  TEXMTX8  = 54
+  TEXMTX9  = 57
+
+  # Clever games can use PNMTX as inputs to texgen.
+  PNMTX0   = 0
+  PNMTX1   = 3
+  PNMTX2   = 6
+  PNMTX3   = 9
+  PNMTX4   = 12
+  PNMTX5   = 15
+  PNMTX6   = 18
+  PNMTX7   = 21
+  PNMTX8   = 24
+  PNMTX9   = 27

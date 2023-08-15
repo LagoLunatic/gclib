@@ -64,7 +64,8 @@ class BUNFOE:
     
     assert offset >= orig_offset
     if hasattr(self, "DATA_SIZE"):
-      assert (offset - orig_offset) <= self.DATA_SIZE
+      size_read = offset - orig_offset
+      assert size_read == self.DATA_SIZE
   
   def read_field(self, field: Field, offset: int) -> int:
     value = self.read_value(field.type, offset)
@@ -190,8 +191,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
 
 def bunfoe(cls=None, /, *,
            # Dataclass arguments. Some defaults are changed.
-           # TODO: eq should be changed back to True later
-           init=False, repr=True, eq=False, order=False,
+           init=False, repr=True, eq=True, order=False,
            unsafe_hash=False, frozen=False, match_args=True,
            kw_only=False, slots=False, weakref_slot=False,
            ):

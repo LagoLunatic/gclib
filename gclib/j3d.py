@@ -623,8 +623,11 @@ class JNT1(J3DChunk):
   def save_chunk_specific_data(self):
     pass
 
+class Vector(BUNFOE):
+  pass
+
 @bunfoe
-class Vec3float(BUNFOE):
+class Vec3float(Vector):
   x: float
   y: float
   z: float
@@ -634,7 +637,16 @@ class Vec3float(BUNFOE):
     return (self.x, self.y, self.z)
 
 @bunfoe
-class Vec3u16Rot(BUNFOE):
+class Vec2float(Vector):
+  x: float
+  y: float
+  
+  @property
+  def xy(self):
+    return (self.x, self.y)
+
+@bunfoe
+class Vec3u16Rot(Vector):
   x: u16Rot
   y: u16Rot
   z: u16Rot
@@ -642,6 +654,13 @@ class Vec3u16Rot(BUNFOE):
   @property
   def xyz(self):
     return (self.x, self.y, self.z)
+
+@bunfoe
+class Matrix4x4(BUNFOE):
+  r0: list[(float,)*4]
+  r1: list[(float,)*4]
+  r2: list[(float,)*4]
+  r3: list[(float,)*4]
 
 @bunfoe
 class Joint(BUNFOE):
@@ -798,14 +817,14 @@ class ZMode(BUNFOE):
 class RGBA(BUNFOE):
   pass
 
-@bunfoe(eq=True)
+@bunfoe
 class RGBAu8(RGBA):
   r: u8
   g: u8
   b: u8
   a: u8
 
-@bunfoe(eq=True)
+@bunfoe
 class RGBAs16(RGBA):
   r: s16
   g: s16
@@ -826,7 +845,7 @@ class AttenuationFunction(u8, Enum):
   Spot     = 0x01
   None_    = 0x02
 
-@bunfoe(eq=True)
+@bunfoe
 class ColorChannel(BUNFOE):
   lighting_enabled    : bool
   mat_color_src       : ColorSrc
@@ -842,7 +861,7 @@ class AlphaOp(u8, Enum):
   XOR  = 0x02
   XNOR = 0x03
 
-@bunfoe(eq=True)
+@bunfoe
 class AlphaCompare(BUNFOE):
   comp0     : GX.CompareType
   ref0      : u8
@@ -858,14 +877,14 @@ class BlendMode(u8, Enum):
   Logic    = 0x02
   Subtract = 0x03
 
-@bunfoe(eq=True)
+@bunfoe
 class TevOrder(BUNFOE):
   tex_coord_id: GX.TexCoordID
   tex_map     : u8
   channel_id  : u8
   _padding    : u8 = 0xFF
 
-@bunfoe(eq=True)
+@bunfoe
 class TevStageColorPart(BUNFOE):
   in_a      : GX.CombineColor
   in_b      : GX.CombineColor
@@ -877,7 +896,7 @@ class TevStageColorPart(BUNFOE):
   clamp     : bool
   reg_id    : GX.Register
 
-@bunfoe(eq=True)
+@bunfoe
 class TevStageAlphaPart(BUNFOE):
   in_a  : GX.CombineAlpha
   in_b  : GX.CombineAlpha
@@ -889,13 +908,52 @@ class TevStageAlphaPart(BUNFOE):
   clamp : bool
   reg_id: GX.Register
 
-@bunfoe(eq=True)
-class TevStage(BUNFOE): 
+@bunfoe
+class TevStage(BUNFOE):
   tev_mode  : u8
   color     : TevStageColorPart
   alpha     : TevStageAlphaPart
   _padding_1: u8
 
+@bunfoe
+class TexCoord(BUNFOE):
+  type_           : GX.TexGenType
+  source          : GX.TexGenSrc
+  tex_gen_matrix  : GX.TexGenMatrix
+  _padding_1      : u8 = 0xFF
+
+class TexMtxProjection(u8, Enum):
+  MTX3x4 = 0x00
+  MTX2x4 = 0x01
+
+class TexMtxMapMode(u8, Enum):
+  None_              = 0x00
+  EnvmapBasic        = 0x01
+  ProjmapBasic       = 0x02
+  ViewProjmapBasic   = 0x03
+  UNKNOWN_04         = 0x04
+  UNKNOWN_05         = 0x05
+  EnvmapOld          = 0x06
+  Envmap             = 0x07
+  Projmap            = 0x08
+  ViewProjmap        = 0x09
+  EnvmapOldEffectMtx = 0x0A
+  EnvmapEffectMtx    = 0x0B
+
+@bunfoe
+class TexMatrix(BUNFOE):
+  DATA_SIZE = 0x64
+  
+  projection   : TexMtxProjection
+  map_mode     : TexMtxMapMode # TODO actually a bitfield: &0x80=is_maya &0x3F=matrix_mode
+  _padding_1   : u16 = 0xFFFF
+  center       : Vec3float
+  scale        : Vec2float
+  rotation     : u16Rot
+  _padding_2   : u16 = 0xFFFF
+  translation  : Vec2float
+  effect_matrix: Matrix4x4
+  
 @bunfoe
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
@@ -912,10 +970,10 @@ class Material(BUNFOE):
   color_channels      : list[(ColorChannel,)*4] = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
   ambient_colors      : list[(RGBAu8,)*2]       = field(metadata={'indexed_by': (u16, 'ambient_color_list_offset')})
   light_colors        : list[(RGBAu8,)*8]       = field(metadata={'indexed_by': (u16, 'light_color_list_offset')})
-  tex_gens            : list[(u16,)*8]
-  post_gen_gens       : list[(u16,)*8]
-  tex_matrixes        : list[(u16,)*10]
-  post_tex_matrixes   : list[(u16,)*20]
+  tex_coord_gens      : list[(TexCoord,)*8]     = field(metadata={'indexed_by': (u16, 'tex_coord_gen_list_offset')})
+  post_tex_coord_gens : list[(TexCoord,)*8]     = field(metadata={'indexed_by': (u16, 'post_tex_coord_gen_list_offset')})
+  tex_matrixes        : list[(TexMatrix,)*10]   = field(metadata={'indexed_by': (u16, 'tex_matrix_list_offset')})
+  post_tex_matrixes   : list[(TexMatrix,)*20]   = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')})
   textures            : list[(u16,)*8]          #= field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}) # TODO broken, crashes j3dultra
   tev_konst_colors    : list[(RGBAu8,)*4]       = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')})
   tev_konst_color_sels: list[(u8,)*16]
@@ -1010,8 +1068,8 @@ class MAT3(J3DChunk):
   ambient_color_list_offset      : u32
   light_color_list_offset        : u32
   num_tex_gens_list_offset       : u32
-  tex_gen_list_offset            : u32
-  post_tex_gen_list_offset       : u32
+  tex_coord_gen_list_offset      : u32
+  post_tex_coord_gen_list_offset : u32
   tex_matrix_list_offset         : u32
   post_tex_matrix_list_offset    : u32
   texture_remap_table_offset     : u32
