@@ -2,6 +2,9 @@
 from enum import Enum, Flag, IntEnum
 from io import BytesIO
 from collections import OrderedDict
+from typing import Type, Any
+from types import GenericAlias
+import typing
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
@@ -771,18 +774,51 @@ class ZMode(BUNFOE):
   depth_write: bool
   _padding_1 : u8 = 0xFF
 
+@bunfoe(eq=True)
+class RGBA32(BUNFOE):
+  r: u8
+  g: u8
+  b: u8
+  a: u8
+
+class ColorSrc(u8, Enum):
+  Register = 0x00
+  Vertex   = 0x01
+
+class DiffuseFunction(u8, Enum):
+  None_  = 0x00
+  Signed = 0x01
+  Clamp  = 0x02
+
+class AttenuationFunction(u8, Enum):
+  Specular = 0x00
+  Spot     = 0x01
+  None_    = 0x02
+
+@bunfoe(eq=True)
+class ColorChannel(BUNFOE):
+  lighting_enabled    : bool
+  mat_color_src       : ColorSrc
+  lit_mask            : u8 # Bitfield. Each bit is one light. TODO
+  diffuse_function    : DiffuseFunction
+  attenuation_function: AttenuationFunction
+  ambient_color_src   : ColorSrc
+  _padding_1          : u16
+
 @bunfoe
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
-  pixel_engine_mode: PixelEngineMode = PixelEngineMode.Opaque
-  cull_mode        : CullMode        = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
-  num_color_chans  : u8              = field(metadata={'indexed_by': (u8, 'num_color_chans_list_offset')})
-  num_tex_gens     : u8              = field(metadata={'indexed_by': (u8, 'num_tex_gens_list_offset')})
-  num_tev_stages   : u8              = field(metadata={'indexed_by': (u8, 'num_tev_stages_list_offset')})
-  z_compare        : bool            = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
-  z_mode           : ZMode           = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
-  dither           : bool            = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
+  pixel_engine_mode : PixelEngineMode         = PixelEngineMode.Opaque
+  cull_mode         : CullMode                = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
+  num_color_chans   : u8                      = field(metadata={'indexed_by': (u8, 'num_color_chans_list_offset')})
+  num_tex_gens      : u8                      = field(metadata={'indexed_by': (u8, 'num_tex_gens_list_offset')})
+  num_tev_stages    : u8                      = field(metadata={'indexed_by': (u8, 'num_tev_stages_list_offset')})
+  z_compare         : bool                    = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
+  z_mode            : ZMode                   = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
+  dither            : bool                    = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
+  material_colors   : list[(RGBA32,)*2]       = field(metadata={'indexed_by': (u8, 'mat_color_list_offset')})
+  color_channels    : list[(ColorChannel,)*4] = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
   
   def __init__(self, data, mat3: 'MAT3'):
     super(Material, self).__init__(data)
@@ -792,25 +828,47 @@ class Material(BUNFOE):
     if 'indexed_by' not in field.metadata:
       return super().read_field(field, offset)
     
-    index_type, list_attr_name = field.metadata['indexed_by']
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
+      arg_values = []
+      for arg_type in typing.get_args(field.type):
+        arg_value, offset = self.read_indexed_value(arg_type, offset, field.metadata['indexed_by'])
+        arg_values.append(arg_value)
+      value = field.type(arg_values)
+    else:
+      value, offset = self.read_indexed_value(field.type, offset, field.metadata['indexed_by'])
+    
+    setattr(self, field.name, value)
+    return offset
+  
+  def read_indexed_value(self, value_type: Type, offset: int, indexed_by: tuple) -> tuple[Any, int]:
+    index_type, list_attr_name = indexed_by
     index = self.read_value(index_type, offset)
     offset += self.get_byte_size(index_type)
     
     list_offset = getattr(self.mat3, list_attr_name)
     assert isinstance(list_offset, int)
-    value_offset = list_offset + index*self.get_byte_size(field.type)
-    value = self.read_value(field.type, value_offset)
+    value_offset = list_offset + index*self.get_byte_size(value_type)
+    value = self.read_value(value_type, value_offset)
     
-    setattr(self, field.name, value)
-    return offset
+    return value, offset
   
   def save_field(self, field: Field, offset: int) -> int:
     if 'indexed_by' not in field.metadata:
       return super().save_field(field, offset)
     
-    index_type, list_attr_name = field.metadata['indexed_by']
     value = getattr(self, field.name)
-    index = self.mat3.queue_indexed_value_write(value, field.type, list_attr_name)
+    
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
+      for i, arg_type in enumerate(typing.get_args(field.type)):
+        offset = self.save_indexed_value(arg_type, offset, value[i], field.metadata['indexed_by'])
+    else:
+      offset = self.save_indexed_value(field.type, offset, value, field.metadata['indexed_by'])
+    
+    return offset
+  
+  def save_indexed_value(self, value_type: Type, offset: int, value: Any, indexed_by: tuple) -> int:
+    index_type, list_attr_name = indexed_by
+    index = self.mat3.queue_indexed_value_write(value, value_type, list_attr_name)
     self.save_value(index_type, offset, index)
     offset += self.get_byte_size(index_type)
     

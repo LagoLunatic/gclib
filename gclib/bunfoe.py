@@ -185,6 +185,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
 
 def bunfoe(cls=None, /, *,
            # Dataclass arguments. Some defaults are changed.
+           # TODO: eq should be changed back to True later
            init=False, repr=True, eq=False, order=False,
            unsafe_hash=False, frozen=False, match_args=True,
            kw_only=False, slots=False, weakref_slot=False,
