@@ -28,7 +28,7 @@ class BUNFOE:
     self.data = data
   
   @staticmethod
-  @functools.lru_cache
+  @functools.cache
   def get_byte_size(field_type: Type) -> int:
     if field_type in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
       return fs.PRIMITIVE_TYPE_TO_BYTE_SIZE[field_type]
