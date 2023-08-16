@@ -72,6 +72,40 @@ class CompareType(u8, Enum):
   Greater_Equal = 6
   Always        = 7
 
+class BlendMode(u8, Enum):
+  None_    = 0x00
+  Blend    = 0x01
+  Logic    = 0x02
+  Subtract = 0x03
+
+class BlendFactor(u8, Enum):
+  Zero                      = 0x00
+  One                       = 0x01
+  Source_Color              = 0x02
+  Inverse_Source_Color      = 0x03
+  Source_Alpha              = 0x04
+  Inverse_Source_Alpha      = 0x05
+  Destination_Alpha         = 0x06
+  Inverse_Destination_Alpha = 0x07
+
+class LogicOp(u8, Enum):
+  CLEAR   = 0x00
+  AND     = 0x01
+  REVAND  = 0x02
+  COPY    = 0x03
+  INVAND  = 0x04
+  NOOP    = 0x05
+  XOR     = 0x06
+  OR      = 0x07
+  NOR     = 0x08
+  EQUIV   = 0x09
+  INV     = 0x0A
+  REVOR   = 0x0B
+  INVCOPY = 0x0C
+  INVOR   = 0x0D
+  NAND    = 0x0E
+  SET     = 0x0F
+
 class TexCoordID(u8, Enum):
   TEXCOORD0     = 0x00
   TEXCOORD1     = 0x01
@@ -82,6 +116,89 @@ class TexCoordID(u8, Enum):
   TEXCOORD6     = 0x06
   TEXCOORD7     = 0x07
   TEXCOORD_NULL = 0xFF
+
+class TexMapID(u8, Enum):
+  TEXMAP0     = 0x00
+  TEXMAP1     = 0x01
+  TEXMAP2     = 0x02
+  TEXMAP3     = 0x03
+  TEXMAP4     = 0x04
+  TEXMAP5     = 0x05
+  TEXMAP6     = 0x06
+  TEXMAP7     = 0x07
+  TEXMAP_NULL = 0xFF
+
+class IndirectTexScale(u8, Enum):
+  _1   = 0x00
+  _2   = 0x01
+  _4   = 0x02
+  _8   = 0x03
+  _16  = 0x04
+  _32  = 0x05
+  _64  = 0x06
+  _128 = 0x07
+  _256 = 0x08
+
+class IndTexStageID(u8, Enum):
+  STAGE0 = 0
+  STAGE1 = 1
+  STAGE2 = 2
+  STAGE3 = 3
+
+class IndTexFormat(u8, Enum):
+  _8 = 0 # 8-bit texture offset
+  _5 = 1 # 5-bit texture offset
+  _4 = 2 # 4-bit texture offset
+  _3 = 3 # 3-bit texture offset
+
+class IndTexBiasSel(u8, Enum):
+  NONE = 0
+  S    = 1
+  T    = 2
+  ST   = 3
+  U    = 4
+  SU   = 5
+  TU   = 6
+  STU  = 7
+
+class IndTexAlphaSel(u8, Enum):
+  OFF = 0
+  S   = 1
+  T   = 2
+  U   = 3
+
+class IndTexMtxID(u8, Enum):
+  OFF = 0
+  _0  = 1
+  _1  = 2
+  _2  = 3
+  S0  = 5
+  S1  = 6
+  S2  = 7
+  T0  = 9
+  T1  = 10
+  T2  = 11
+
+class IndTexWrap(u8, Enum):
+  OFF  = 0
+  _256 = 1
+  _128 = 2
+  _64  = 3
+  _32  = 4
+  _16  = 5
+  _0   = 6
+
+class ColorChannelID (u8, Enum):
+  COLOR0       = 0x00
+  COLOR1       = 0x01
+  ALPHA0       = 0x02
+  ALPHA1       = 0x03
+  COLOR0A0     = 0x04
+  COLOR1A1     = 0x05
+  COLOR_ZERO   = 0x06
+  ALPHA_BUMP   = 0x07
+  ALPHA_BUMP_N = 0x08
+  COLOR_NULL   = 0xFF
 
 class CombineColor(u8, Enum):
   CPREV = 0x00 # Use the color value from previous TEV stage

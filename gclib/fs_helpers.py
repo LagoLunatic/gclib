@@ -201,6 +201,15 @@ def pad_offset_to_nearest(offset: int, size: int) -> int:
   next_offset = offset + (size - offset % size) % size
   return next_offset
 
+def align_data_and_pad_offset(data: BinaryIO, offset: int, size: int, padding_bytes=PADDING_BYTES) -> int:
+  next_offset = offset + (size - offset % size) % size
+  padding_needed = next_offset - offset
+  data.seek(offset)
+  padding = padding_bytes*(padding_needed // len(padding_bytes))
+  padding += padding_bytes[:padding_needed % len(padding_bytes)]
+  data.write(padding)
+  return next_offset
+
 
 class u32(int):
   pass

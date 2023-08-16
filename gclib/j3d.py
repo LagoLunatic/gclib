@@ -8,7 +8,7 @@ import typing
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, Field, bunfoe, field
+from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
 from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
@@ -656,8 +656,16 @@ class Vec3u16Rot(Vector):
   def xyz(self):
     return (self.x, self.y, self.z)
 
+class Matrix(BUNFOE):
+  pass
+
 @bunfoe
-class Matrix4x4(BUNFOE):
+class Matrix2x3(Matrix):
+  r0: list[(float,)*3]
+  r1: list[(float,)*3]
+
+@bunfoe
+class Matrix4x4(Matrix):
   r0: list[(float,)*4]
   r1: list[(float,)*4]
   r2: list[(float,)*4]
@@ -872,49 +880,42 @@ class AlphaCompare(BUNFOE):
   _padding_1: u8 = 0xFF
   _padding_2: u16 = 0xFFFF
 
-class BlendMode(u8, Enum):
-  None_    = 0x00
-  Blend    = 0x01
-  Logic    = 0x02
-  Subtract = 0x03
+@bunfoe
+class BlendMode(BUNFOE):
+  mode              : GX.BlendMode
+  source_factor     : GX.BlendFactor
+  destination_factor: GX.BlendFactor
+  logic_op          : GX.LogicOp
 
 @bunfoe
 class TevOrder(BUNFOE):
   tex_coord_id: GX.TexCoordID
-  tex_map     : u8
-  channel_id  : u8
+  tex_map_id  : GX.TexMapID
+  channel_id  : GX.ColorChannelID
   _padding    : u8 = 0xFF
 
 @bunfoe
-class TevStageColorPart(BUNFOE):
-  in_a      : GX.CombineColor
-  in_b      : GX.CombineColor
-  in_c      : GX.CombineColor
-  in_d      : GX.CombineColor
-  op        : GX.TevOp
-  bias      : GX.TevBias
-  scale     : GX.TevScale
-  clamp     : bool
-  reg_id    : GX.Register
-
-@bunfoe
-class TevStageAlphaPart(BUNFOE):
-  in_a  : GX.CombineAlpha
-  in_b  : GX.CombineAlpha
-  in_c  : GX.CombineAlpha
-  in_d  : GX.CombineAlpha
-  op    : GX.TevOp
-  bias  : GX.TevBias
-  scale : GX.TevScale
-  clamp : bool
-  reg_id: GX.Register
-
-@bunfoe
 class TevStage(BUNFOE):
-  tev_mode  : u8
-  color     : TevStageColorPart
-  alpha     : TevStageAlphaPart
-  _padding_1: u8
+  tev_mode    : u8
+  color_in_a  : GX.CombineColor
+  color_in_b  : GX.CombineColor
+  color_in_c  : GX.CombineColor
+  color_in_d  : GX.CombineColor
+  color_op    : GX.TevOp
+  color_bias  : GX.TevBias
+  color_scale : GX.TevScale
+  color_clamp : bool
+  color_reg_id: GX.Register
+  alpha_in_a  : GX.CombineAlpha
+  alpha_in_b  : GX.CombineAlpha
+  alpha_in_c  : GX.CombineAlpha
+  alpha_in_d  : GX.CombineAlpha
+  alpha_op    : GX.TevOp
+  alpha_bias  : GX.TevBias
+  alpha_scale : GX.TevScale
+  alpha_clamp : bool
+  alpha_reg_id: GX.Register
+  _padding_1  : u8
 
 @bunfoe
 class TexCoord(BUNFOE):
@@ -956,6 +957,19 @@ class TexMatrix(BUNFOE):
   effect_matrix: Matrix4x4
 
 @bunfoe
+class TevSwapMode(BUNFOE):
+  ras_sel   : u8
+  tex_sel   : u8
+  _padding_1: u16
+
+@bunfoe
+class TevSwapModeTable(BUNFOE):
+  r: u8
+  g: u8
+  b: u8
+  a: u8
+
+@bunfoe
 class FogInfo(BUNFOE):
   DATA_SIZE = 0x2C
   
@@ -968,6 +982,13 @@ class FogInfo(BUNFOE):
   far_z            : float
   color            : RGBAu8
   range_adjustments: list[(u16,)*10]
+
+@bunfoe
+class NBTScale(BUNFOE):
+  enable    : bool
+  _padding_1: u8 = 0xFF
+  _padding_2: u16 = 0xFFFF
+  scale     : Vec3float
 
 @bunfoe
 class Material(BUNFOE):
@@ -989,20 +1010,19 @@ class Material(BUNFOE):
   post_tex_coord_gens : list[(TexCoord,)*8]          = field(metadata={'indexed_by': (u16, 'post_tex_coord_gen_list_offset')})
   tex_matrixes        : list[(TexMatrix,)*10]        = field(metadata={'indexed_by': (u16, 'tex_matrix_list_offset')})
   post_tex_matrixes   : list[(TexMatrix,)*20]        = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')})
-  textures            : list[(u16,)*8]               #= field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}) # TODO broken, crashes j3dultra
+  textures            : list[(u16,)*8]               = field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')})
   tev_konst_colors    : list[(RGBAu8,)*4]            = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')})
   tev_konst_color_sels: list[(GX.KonstColorSel,)*16]
   tev_konst_alpha_sels: list[(GX.KonstAlphaSel,)*16]
   tev_orders          : list[(TevOrder,)*16]         = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')})
   tev_colors          : list[(RGBAs16,)*4]           = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')})
   tev_stages          : list[(TevStage,)*16]         = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')})
-  tev_swap_modes      : list[(u16,)*16] # TODO
-  tev_swap_mode_tables: list[(u16,)*4] # TODO
-  unknown_1           : list[(u16,)*12] # TODO
+  tev_swap_modes      : list[(TevSwapMode,)*16]      = field(metadata={'indexed_by': (u16, 'tev_swap_mode_list_offset')})
+  tev_swap_mode_tables: list[(TevSwapModeTable,)*16] = field(metadata={'indexed_by': (u16, 'tev_swap_mode_table_list_offset')})
   fog_info            : FogInfo                      = field(metadata={'indexed_by': (u16, 'fog_list_offset')})
   alpha_compare       : AlphaCompare                 = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
   blend_mode          : BlendMode                    = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
-  unknown_2           : u16
+  nbt_scale           : NBTScale                     = field(metadata={'indexed_by': (u16, 'nbt_scale_list_offset')})
   
   def __init__(self, data, mat3: 'MAT3'):
     super(Material, self).__init__(data)
@@ -1034,14 +1054,7 @@ class Material(BUNFOE):
     if index == max_val:
       return None, offset
     
-    list_offset = getattr(self.mat3, list_attr_name)
-    assert isinstance(list_offset, int)
-    if list_offset == 0:
-      # Sometimes the index can be valid, but the list is nonexistent.
-      # e.g. cc.bmd's first material has one post tex matrix with index 0, but the list offset is 0.
-      return None, offset
-    value_offset = list_offset + index*self.get_byte_size(value_type)
-    value = self.read_value(value_type, value_offset)
+    value = self.mat3.read_indexed_value(value_type, list_attr_name, index)
     
     return value, offset
   
@@ -1073,12 +1086,57 @@ class Material(BUNFOE):
     return offset
 
 @bunfoe
+class IndirectTevOrder(BUNFOE): 
+  tex_coord_id            : GX.TexCoordID
+  tex_map_id              : GX.TexMapID
+  _padding_1              : u16
+
+@bunfoe
+class IndirectTexMatrix(BUNFOE):
+  matrix    : Matrix2x3
+  exponent  : u8
+  _padding_1: u8 = 0xFF
+  _padding_2: u16 = 0xFFFF
+
+@bunfoe
+class IndirectTexScale(BUNFOE):
+  scale_s   : GX.IndirectTexScale
+  scale_t   : GX.IndirectTexScale
+  _padding_1: u16
+
+@bunfoe
+class IndirectTevStage(BUNFOE):
+  tev_stage       : GX.IndTexStageID
+  ind_tex_format  : GX.IndTexFormat
+  ind_tex_bias_sel: GX.IndTexBiasSel
+  ind_tex_mtx_id  : GX.IndTexMtxID
+  ind_tex_wrap_s  : GX.IndTexWrap
+  ind_tex_wrap_t  : GX.IndTexWrap
+  add_prev        : bool
+  utc_lod         : bool
+  alpha_sel       : GX.IndTexAlphaSel
+  _padding_1      : u8
+  _padding_2      : u16
+
+@bunfoe
+class TextureIndirect(BUNFOE):
+  DATA_SIZE = 0x138
+  
+  enable            : bool
+  num_ind_tex_stages: u8
+  _padding_1        : u16 = 0xFFFF
+  tev_orders        : list[(IndirectTevOrder,)*4]
+  tex_matrixes      : list[(IndirectTexMatrix,)*3]
+  scales            : list[(IndirectTexScale,)*4]
+  tev_stages        : list[(IndirectTevStage,)*16]
+
+@bunfoe
 class MAT3(J3DChunk):
   material_count                 : u16
   _padding_1                     : u16 = 0xFFFF
   material_data_offset           : u32
   material_remap_table_offset    : u32
-  string_table_offset            : u32
+  mat_names_table_offset         : u32
   indirect_list_offset           : u32
   cull_mode_list_offset          : u32
   mat_color_list_offset          : u32
@@ -1123,8 +1181,28 @@ class MAT3(J3DChunk):
       mat = Material(self.data, self)
       mat.read(offset)
       self.materials.append(mat)
+  
+    self.mat_names = self.read_string_table(self.mat_names_table_offset)
     
-    self.mat_names = self.read_string_table(self.string_table_offset)
+    self.indirects: list[TextureIndirect] = []
+    indirect_offset = self.indirect_list_offset
+    if indirect_offset != self.mat_names_table_offset:
+      for mat_index in range(self.material_count):
+        indirect = TextureIndirect(self.data)
+        indirect.read(indirect_offset)
+        self.indirects.append(indirect)
+        indirect_offset += TextureIndirect.DATA_SIZE
+  
+  def read_indexed_value(self, value_type: Type, list_attr_name: str, index: int) -> Any:
+    list_offset = getattr(self, list_attr_name)
+    assert isinstance(list_offset, int)
+    if list_offset == 0:
+      # Sometimes the material's index can be valid, but the MAT3's list is nonexistent.
+      # e.g. cc.bmd's first material has one post tex matrix with index 0, but the list offset is 0.
+      return None
+    value_offset = list_offset + index*self.get_byte_size(value_type)
+    value = self.read_value(value_type, value_offset)
+    return value
   
   def queue_indexed_value_write(self, value, data_type: type, list_attr_name: str) -> int:
     if list_attr_name not in self.queued_values_to_write:
@@ -1135,10 +1213,8 @@ class MAT3(J3DChunk):
     return self.queued_values_to_write[list_attr_name].index(value)
   
   def save_chunk_specific_data(self):
-    # TODO: indirect_list_offset
-    # TODO: nbt_scale_list_offset
-    # TODO: tev_swap_mode_list_offset
-    # TODO: tev_swap_mode_table_list_offset
+    # Cut off all the data, we're rewriting it entirely.
+    self.data.truncate(0)
     
     # De-duplicate the materials.
     self.material_count = len(self.materials)
@@ -1167,17 +1243,39 @@ class MAT3(J3DChunk):
       fs.write_u16(self.data, offset, remap_index)
       offset += 2
     
+    offset = fs.align_data_and_pad_offset(self.data, offset, 4)
+    
     # Write the material names.
-    self.string_table_offset = offset
-    offset = self.write_string_table(self.string_table_offset, self.mat_names)
+    self.mat_names_table_offset = offset
+    offset = self.write_string_table(self.mat_names_table_offset, self.mat_names)
+    offset = fs.align_data_and_pad_offset(self.data, offset, 4)
+    
+    assert len(self.indirects) == len(self.materials)
+    self.indirect_list_offset = offset
+    for indirect in self.indirects:
+      indirect.save(offset)
+      offset += TextureIndirect.DATA_SIZE
+    offset = fs.align_data_and_pad_offset(self.data, offset, 4)
+    
+    # First clear all of these fields to be safe so we don't accidentally write stale data.
+    for field in fields(self):
+      if field.name == "indirect_list_offset":
+        continue
+      if field.name.endswith("_list_offset") or field.name == "texture_remap_table_offset":
+        setattr(self, field.name, None)
     
     # Now we can write the material values that were queued for writing earlier.
-    # TODO: we also need to write 0 or something for lists that weren't queued at all?
-    for list_attr_name, values in self.queued_values_to_write.items():
+    # for list_attr_name, values in self.queued_values_to_write.items():
+    for field in fields(self):
+      if getattr(self, field.name) is None:
+        self.set_dummy_blank_list_offset(field.name, offset)
+      if field.name not in self.queued_values_to_write:
+        continue
+      list_attr_name = field.name
+      values = self.queued_values_to_write[list_attr_name]
+      
       if len(values) == 0:
-        # TODO: in some cases it writes the offset of the previous table, while in others just 0.
-        # idk how to tell the difference, look into this more.
-        setattr(self, list_attr_name, 0)
+        self.set_dummy_blank_list_offset(field.name, offset)
         continue
       
       # Also recalculate the offset so this can be stored in the header at the end.
@@ -1187,9 +1285,25 @@ class MAT3(J3DChunk):
       for value in values:
         self.save_value(data_type, offset, value)
         offset += self.get_byte_size(data_type)
+      
+      offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
     # Finally, save the new offsets to each list back to the header.
     BUNFOE.save(self, 0)
+  
+  def set_dummy_blank_list_offset(self, list_attr_name, offset):
+    # TODO: in some cases it writes the offset of the next list, while in others just 0.
+    # I'm not sure how to tell the difference, look into this more.
+    # num_tex_gens_list_offset: copies offset of next list.
+    # post_tex_coord_gen_list_offset: writes 0.
+    # post_tex_matrix_list_offset: writes 0.
+    # light_colors: copies offset of next list.
+    if list_attr_name in ['post_tex_coord_gen_list_offset', 'post_tex_matrix_list_offset']:
+      dummy_offset = 0
+    else:
+      dummy_offset = offset
+    
+    setattr(self, list_attr_name, dummy_offset)
 
 class MDL3(J3DChunk):
   def read_chunk_specific_data(self):
