@@ -24,9 +24,10 @@ class Yaz0:
   
   @staticmethod
   def check_is_compressed(data):
-    if fs.try_read_str(data, 0, 4) != "Yaz0":
+    if fs.data_len(data) < 4:
       return False
-    
+    if fs.read_bytes(data, 0, 4) != b"Yaz0":
+      return False
     return True
   
   @staticmethod
