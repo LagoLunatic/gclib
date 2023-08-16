@@ -6,6 +6,7 @@ from typing import Any, BinaryIO, Sequence, Type
 from types import GenericAlias
 import typing
 import types
+import functools
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
@@ -27,6 +28,7 @@ class BUNFOE:
     self.data = data
   
   @staticmethod
+  @functools.lru_cache
   def get_byte_size(field_type: Type) -> int:
     if field_type in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
       return fs.PRIMITIVE_TYPE_TO_BYTE_SIZE[field_type]
