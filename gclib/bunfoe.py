@@ -57,7 +57,7 @@ class BUNFOE:
       raise NotImplementedError
   
   #region Reading
-  def read(self, offset: int):
+  def read(self, offset: int) -> int:
     orig_offset = offset
     for field in fields(self):
       offset = self.read_field(field, offset)
@@ -66,6 +66,8 @@ class BUNFOE:
     if hasattr(self, "DATA_SIZE"):
       size_read = offset - orig_offset
       assert size_read == self.DATA_SIZE
+    
+    return offset
   
   def read_field(self, field: Field, offset: int) -> int:
     value = self.read_value(field.type, offset)
@@ -114,9 +116,17 @@ class BUNFOE:
   #endregion
   
   #region Saving
-  def save(self, offset: int):
+  def save(self, offset: int) -> int:
+    orig_offset = offset
     for field in fields(self):
       offset = self.save_field(field, offset)
+    
+    assert offset >= orig_offset
+    if hasattr(self, "DATA_SIZE"):
+      size_read = offset - orig_offset
+      assert size_read == self.DATA_SIZE
+    
+    return offset
   
   def save_field(self, field: Field, offset: int) -> int:
     value = getattr(self, field.name)
@@ -136,10 +146,10 @@ class BUNFOE:
       self.save_value(u16, offset, value)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ == FixedStr:
       str_len = typing.get_args(field_type)[0]
-      fs.write_str(self.data, offset, str_len)
+      fs.write_str(self.data, offset, value, str_len)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ == MagicStr:
       str_len = typing.get_args(field_type)[0]
-      fs.write_magic_str(self.data, offset, str_len)
+      fs.write_magic_str(self.data, offset, value, str_len)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
       self.save_sequence(field_type, offset, value)
     elif issubclass(field_type, Enum):

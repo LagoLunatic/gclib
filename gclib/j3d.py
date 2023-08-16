@@ -78,7 +78,7 @@ class J3D(GCLibFile):
       
       offset += chunk.size
   
-  def save(self):
+  def save(self, only_chunks:set=None):
     data = self.data
     
     # Cut off the chunk data first since we're replacing this data entirely.
@@ -86,11 +86,10 @@ class J3D(GCLibFile):
     data.seek(0x20)
     
     for chunk in self.chunks:
-      chunk.save()
+      if only_chunks is None or chunk.magic in only_chunks:
+        chunk.save()
       
-      chunk.data.seek(0)
-      chunk_data = chunk.data.read()
-      data.write(chunk_data)
+      data.write(fs.read_all_bytes(chunk.data))
     
     if self.bck_sound_data is not None:
       self.bck_sound_data_offset = fs.data_len(data)
@@ -201,7 +200,7 @@ class J3DChunk(BUNFOE):
     
     return strings
   
-  def write_string_table(self, string_table_offset, strings):
+  def write_string_table(self, string_table_offset, strings) -> int:
     num_strings = len(strings)
     fs.write_u16(self.data, string_table_offset+0x00, num_strings)
     fs.write_u16(self.data, string_table_offset+0x02, 0xFFFF)
@@ -222,6 +221,8 @@ class J3DChunk(BUNFOE):
       
       offset += 4
       next_string_data_offset += len(string) + 1
+    
+    return string_table_offset+next_string_data_offset
 
 class INF1(J3DChunk):
   # TODO: this does not properly read the hierarchy. test on tetra player model for an error.
@@ -855,7 +856,7 @@ class ColorChannel(BUNFOE):
   ambient_color_src   : ColorSrc
   _padding_1          : u16
 
-class AlphaOp(u8, Enum): 
+class AlphaOp(u8, Enum):
   AND  = 0x00
   OR   = 0x01
   XOR  = 0x02
@@ -953,40 +954,54 @@ class TexMatrix(BUNFOE):
   _padding_2   : u16 = 0xFFFF
   translation  : Vec2float
   effect_matrix: Matrix4x4
+
+@bunfoe
+class FogInfo(BUNFOE):
+  DATA_SIZE = 0x2C
   
+  type_            : u8
+  enable           : bool
+  center           : u16
+  start_z          : float
+  end_z            : float
+  near_z           : float
+  far_z            : float
+  color            : RGBAu8
+  range_adjustments: list[(u16,)*10]
+
 @bunfoe
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
-  pixel_engine_mode   : PixelEngineMode         = PixelEngineMode.Opaque
-  cull_mode           : CullMode                = field(metadata={'indexed_by': (u8, 'cull_mode_list_offset')})
-  num_color_chans     : u8                      = field(metadata={'indexed_by': (u8, 'num_color_chans_list_offset')})
-  num_tex_gens        : u8                      = field(metadata={'indexed_by': (u8, 'num_tex_gens_list_offset')})
-  num_tev_stages      : u8                      = field(metadata={'indexed_by': (u8, 'num_tev_stages_list_offset')})
-  z_compare           : bool                    = field(metadata={'indexed_by': (u8, 'z_compare_list_offset')})
-  z_mode              : ZMode                   = field(metadata={'indexed_by': (u8, 'z_mode_list_offset')})
-  dither              : bool                    = field(metadata={'indexed_by': (u8, 'dither_list_offset')})
-  material_colors     : list[(RGBAu8,)*2]       = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')})
-  color_channels      : list[(ColorChannel,)*4] = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
-  ambient_colors      : list[(RGBAu8,)*2]       = field(metadata={'indexed_by': (u16, 'ambient_color_list_offset')})
-  light_colors        : list[(RGBAu8,)*8]       = field(metadata={'indexed_by': (u16, 'light_color_list_offset')})
-  tex_coord_gens      : list[(TexCoord,)*8]     = field(metadata={'indexed_by': (u16, 'tex_coord_gen_list_offset')})
-  post_tex_coord_gens : list[(TexCoord,)*8]     = field(metadata={'indexed_by': (u16, 'post_tex_coord_gen_list_offset')})
-  tex_matrixes        : list[(TexMatrix,)*10]   = field(metadata={'indexed_by': (u16, 'tex_matrix_list_offset')})
-  post_tex_matrixes   : list[(TexMatrix,)*20]   = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')})
-  textures            : list[(u16,)*8]          #= field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}) # TODO broken, crashes j3dultra
-  tev_konst_colors    : list[(RGBAu8,)*4]       = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')})
-  tev_konst_color_sels: list[(u8,)*16]
-  tev_konst_alpha_sels: list[(u8,)*16]
-  tev_orders          : list[(TevOrder,)*16]    = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')})
-  tev_colors          : list[(RGBAs16,)*4]      = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')})
-  tev_stages          : list[(TevStage,)*16]    = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')})
-  tev_swap_modes      : list[(u16,)*16]
-  tev_swap_mode_tables: list[(u16,)*4]
-  unknown_1           : list[(u16,)*12]
-  fog_info            : u16
-  alpha_compare       : AlphaCompare            = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
-  blend_mode          : BlendMode               = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
+  pixel_engine_mode   : PixelEngineMode              = PixelEngineMode.Opaque
+  cull_mode           : CullMode                     = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
+  num_color_chans     : u8                           = field(metadata={'indexed_by': (u8,  'num_color_chans_list_offset')})
+  num_tex_gens        : u8                           = field(metadata={'indexed_by': (u8,  'num_tex_gens_list_offset')})
+  num_tev_stages      : u8                           = field(metadata={'indexed_by': (u8,  'num_tev_stages_list_offset')})
+  z_compare           : bool                         = field(metadata={'indexed_by': (u8,  'z_compare_list_offset')})
+  z_mode              : ZMode                        = field(metadata={'indexed_by': (u8,  'z_mode_list_offset')})
+  dither              : bool                         = field(metadata={'indexed_by': (u8,  'dither_list_offset')})
+  material_colors     : list[(RGBAu8,)*2]            = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')})
+  color_channels      : list[(ColorChannel,)*4]      = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
+  ambient_colors      : list[(RGBAu8,)*2]            = field(metadata={'indexed_by': (u16, 'ambient_color_list_offset')})
+  light_colors        : list[(RGBAu8,)*8]            = field(metadata={'indexed_by': (u16, 'light_color_list_offset')})
+  tex_coord_gens      : list[(TexCoord,)*8]          = field(metadata={'indexed_by': (u16, 'tex_coord_gen_list_offset')})
+  post_tex_coord_gens : list[(TexCoord,)*8]          = field(metadata={'indexed_by': (u16, 'post_tex_coord_gen_list_offset')})
+  tex_matrixes        : list[(TexMatrix,)*10]        = field(metadata={'indexed_by': (u16, 'tex_matrix_list_offset')})
+  post_tex_matrixes   : list[(TexMatrix,)*20]        = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')})
+  textures            : list[(u16,)*8]               #= field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}) # TODO broken, crashes j3dultra
+  tev_konst_colors    : list[(RGBAu8,)*4]            = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')})
+  tev_konst_color_sels: list[(GX.KonstColorSel,)*16]
+  tev_konst_alpha_sels: list[(GX.KonstAlphaSel,)*16]
+  tev_orders          : list[(TevOrder,)*16]         = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')})
+  tev_colors          : list[(RGBAs16,)*4]           = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')})
+  tev_stages          : list[(TevStage,)*16]         = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')})
+  tev_swap_modes      : list[(u16,)*16] # TODO
+  tev_swap_mode_tables: list[(u16,)*4] # TODO
+  unknown_1           : list[(u16,)*12] # TODO
+  fog_info            : FogInfo                      = field(metadata={'indexed_by': (u16, 'fog_list_offset')})
+  alpha_compare       : AlphaCompare                 = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
+  blend_mode          : BlendMode                    = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
   unknown_2           : u16
   
   def __init__(self, data, mat3: 'MAT3'):
@@ -999,7 +1014,7 @@ class Material(BUNFOE):
     
     if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
       arg_values = []
-      for arg_type in typing.get_args(field.type):
+      for arg_index, arg_type in enumerate(typing.get_args(field.type)):
         arg_value, offset = self.read_indexed_value(arg_type, offset, field.metadata['indexed_by'])
         arg_values.append(arg_value)
       value = field.type(arg_values)
@@ -1021,6 +1036,10 @@ class Material(BUNFOE):
     
     list_offset = getattr(self.mat3, list_attr_name)
     assert isinstance(list_offset, int)
+    if list_offset == 0:
+      # Sometimes the index can be valid, but the list is nonexistent.
+      # e.g. cc.bmd's first material has one post tex matrix with index 0, but the list offset is 0.
+      return None, offset
     value_offset = list_offset + index*self.get_byte_size(value_type)
     value = self.read_value(value_type, value_offset)
     
@@ -1105,28 +1124,6 @@ class MAT3(J3DChunk):
       mat.read(offset)
       self.materials.append(mat)
     
-    self.tev_reg_colors_offset = fs.read_u32(self.data, 0x50)
-    self.tev_konst_colors_offset = fs.read_u32(self.data, 0x54)
-    self.tev_stages_offset = fs.read_u32(self.data, 0x58)
-    
-    self.num_reg_colors = (self.tev_konst_colors_offset - self.tev_reg_colors_offset) // 8
-    self.reg_colors = []
-    for i in range(self.num_reg_colors):
-      r = fs.read_s16(self.data, self.tev_reg_colors_offset + i*8 + 0)
-      g = fs.read_s16(self.data, self.tev_reg_colors_offset + i*8 + 2)
-      b = fs.read_s16(self.data, self.tev_reg_colors_offset + i*8 + 4)
-      a = fs.read_s16(self.data, self.tev_reg_colors_offset + i*8 + 6)
-      self.reg_colors.append((r, g, b, a))
-    
-    self.num_konst_colors = (self.tev_stages_offset - self.tev_konst_colors_offset) // 4
-    self.konst_colors = []
-    for i in range(self.num_konst_colors):
-      r = fs.read_u8(self.data, self.tev_konst_colors_offset + i*4 + 0)
-      g = fs.read_u8(self.data, self.tev_konst_colors_offset + i*4 + 1)
-      b = fs.read_u8(self.data, self.tev_konst_colors_offset + i*4 + 2)
-      a = fs.read_u8(self.data, self.tev_konst_colors_offset + i*4 + 3)
-      self.konst_colors.append((r, g, b, a))
-    
     self.mat_names = self.read_string_table(self.string_table_offset)
   
   def queue_indexed_value_write(self, value, data_type: type, list_attr_name: str) -> int:
@@ -1138,36 +1135,61 @@ class MAT3(J3DChunk):
     return self.queued_values_to_write[list_attr_name].index(value)
   
   def save_chunk_specific_data(self):
-    # TODO: The remap table needs to be recreated from scratch by checking the equality of all
-    # materials and merging ones that are the same.
-    # For the time being, it just assumes that materials that were duplicates when read are still
-    # duplicates now and saves them over each other.
-    for mat_index, mat in enumerate(self.materials):
-      remap_index = fs.read_u16(self.data, self.material_remap_table_offset + mat_index*2)
-      offset = self.material_data_offset + remap_index*Material.DATA_SIZE
-      mat.save(offset)
+    # TODO: indirect_list_offset
+    # TODO: nbt_scale_list_offset
+    # TODO: tev_swap_mode_list_offset
+    # TODO: tev_swap_mode_table_list_offset
     
-    # TODO: Recalculate the list offsets instead of reusing the original offsets.
+    # De-duplicate the materials.
+    self.material_count = len(self.materials)
+    unique_materials: list[Material] = []
+    # seen_materials = set()
+    remap_indexes: list[int] = []
+    for mat in self.materials:
+      if mat not in unique_materials:
+        unique_materials.append(mat)
+      remap_index = unique_materials.index(mat)
+      remap_indexes.append(remap_index)
+    
+    # Write the unique materials to material_data_offset.
+    # The materials will call MAT3.queue_indexed_value_write to queue a value to write to the MAT3
+    # chunk and get their value indexes in return, allowing the materials to be written now, without
+    # waiting for the data that comes after them to be written.
+    self.queued_values_to_write.clear()
+    self.queued_list_data_types.clear()
+    offset = self.material_data_offset # This offset is constant, always 0x84.
+    for mat in unique_materials:
+      offset = mat.save(offset)
+    
+    # Write the material remap table.
+    self.material_remap_table_offset = offset
+    for remap_index in remap_indexes:
+      fs.write_u16(self.data, offset, remap_index)
+      offset += 2
+    
+    # Write the material names.
+    self.string_table_offset = offset
+    offset = self.write_string_table(self.string_table_offset, self.mat_names)
+    
+    # Now we can write the material values that were queued for writing earlier.
+    # TODO: we also need to write 0 or something for lists that weren't queued at all?
     for list_attr_name, values in self.queued_values_to_write.items():
+      if len(values) == 0:
+        # TODO: in some cases it writes the offset of the previous table, while in others just 0.
+        # idk how to tell the difference, look into this more.
+        setattr(self, list_attr_name, 0)
+        continue
+      
+      # Also recalculate the offset so this can be stored in the header at the end.
+      setattr(self, list_attr_name, offset)
+      
       data_type = self.queued_list_data_types[list_attr_name]
-      offset = getattr(self, list_attr_name)
       for value in values:
         self.save_value(data_type, offset, value)
         offset += self.get_byte_size(data_type)
     
-    for i in range(self.num_reg_colors):
-      r, g, b, a = self.reg_colors[i]
-      fs.write_s16(self.data, self.tev_reg_colors_offset + i*8 + 0, r)
-      fs.write_s16(self.data, self.tev_reg_colors_offset + i*8 + 2, g)
-      fs.write_s16(self.data, self.tev_reg_colors_offset + i*8 + 4, b)
-      fs.write_s16(self.data, self.tev_reg_colors_offset + i*8 + 6, a)
-    
-    for i in range(self.num_konst_colors):
-      r, g, b, a = self.konst_colors[i]
-      fs.write_u8(self.data, self.tev_konst_colors_offset + i*4 + 0, r)
-      fs.write_u8(self.data, self.tev_konst_colors_offset + i*4 + 1, g)
-      fs.write_u8(self.data, self.tev_konst_colors_offset + i*4 + 2, b)
-      fs.write_u8(self.data, self.tev_konst_colors_offset + i*4 + 3, a)
+    # Finally, save the new offsets to each list back to the header.
+    BUNFOE.save(self, 0)
 
 class MDL3(J3DChunk):
   def read_chunk_specific_data(self):
