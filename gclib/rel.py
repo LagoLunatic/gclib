@@ -3,7 +3,6 @@ from gclib import fs_helpers as fs
 from gclib.yaz0 import Yaz0
 
 from io import BytesIO
-from collections import OrderedDict
 from enum import Enum
 
 class REL:
@@ -18,7 +17,7 @@ class REL:
     
     self.bss_size = 0
     
-    self.relocation_entries_for_module = OrderedDict()
+    self.relocation_entries_for_module = {}
     
     self.prolog_section = 0
     self.epilog_section = 0
@@ -62,7 +61,7 @@ class REL:
     
     self.bss_size = fs.read_u32(data, 0x20)
     
-    relocation_data_offset_for_module = OrderedDict()
+    relocation_data_offset_for_module = {}
     self.relocation_table_offset = fs.read_u32(data, 0x24)
     self.imp_table_offset = fs.read_u32(data, 0x28)
     self.imp_table_length = fs.read_u32(data, 0x2C)
@@ -73,7 +72,7 @@ class REL:
       relocation_data_offset_for_module[module_num] = relocation_data_offset
       offset += 8
     
-    self.relocation_entries_for_module = OrderedDict()
+    self.relocation_entries_for_module = {}
     curr_section_num = None
     for module_num, relocation_data_offset in relocation_data_offset_for_module.items():
       self.relocation_entries_for_module[module_num] = []

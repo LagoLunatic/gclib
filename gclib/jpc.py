@@ -2,7 +2,6 @@
 from io import BytesIO
 import os
 import glob
-from collections import OrderedDict
 from enum import Enum
 
 from gclib import fs_helpers as fs
@@ -141,7 +140,7 @@ class JPC:
     all_jpa_file_paths = glob.glob(glob.escape(input_directory) + "/*.jpa")
     new_particles = []
     new_textures = []
-    new_textures_for_particle_id = OrderedDict()
+    new_textures_for_particle_id = {}
     for jpa_path in all_jpa_file_paths:
       # Read the particle itself.
       with open(jpa_path, "rb") as f:

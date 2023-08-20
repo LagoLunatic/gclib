@@ -1,7 +1,6 @@
 
 from enum import Enum, Flag, IntEnum
 from io import BytesIO
-from collections import OrderedDict
 from typing import Type, Any
 from types import GenericAlias
 import typing
@@ -616,7 +615,7 @@ class JNT1(J3DChunk):
       offset += Joint.DATA_SIZE
     
     self.joint_names = self.read_string_table(self.string_table_offset)
-    self.joints_by_name = OrderedDict()
+    self.joints_by_name = {}
     for joint_index, joint in enumerate(self.joints):
       joint_name = self.joint_names[joint_index]
       self.joints_by_name[joint_name] = joint
@@ -743,7 +742,7 @@ class TEX1(J3DChunk):
     
     self.string_table_offset = fs.read_u32(self.data, 0x10)
     self.texture_names = self.read_string_table(self.string_table_offset)
-    self.textures_by_name = OrderedDict()
+    self.textures_by_name = {}
     for i, texture in enumerate(self.textures):
       texture_name = self.texture_names[i]
       if texture_name not in self.textures_by_name:
@@ -1788,8 +1787,8 @@ class TRK1(J3DChunk):
     
     reg_animations = []
     konst_animations = []
-    self.mat_name_to_reg_anims = OrderedDict()
-    self.mat_name_to_konst_anims = OrderedDict()
+    self.mat_name_to_reg_anims = {}
+    self.mat_name_to_konst_anims = {}
     
     offset = reg_color_anims_offset
     for i in range(reg_color_anims_count):
@@ -2071,7 +2070,7 @@ class TTK1(J3DChunk):
       translation_track_data.append(translation)
     
     animations = []
-    self.mat_name_to_anims = OrderedDict()
+    self.mat_name_to_anims = {}
     
     offset = anims_offset
     for i in range(anims_count):
@@ -2309,7 +2308,7 @@ class AnimationKeyframe:
 
 class Animation:
   def __init__(self):
-    self.tracks = OrderedDict()
+    self.tracks = {}
   
   def read_track(self, track_name, data, offset, track_data):
     self.tracks[track_name] = AnimationTrack()
