@@ -10,7 +10,7 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
 from gclib.bti import BTI
 from gclib.gclib_file import GCLibFile
-from gclib.gx_enums import GXAttr, GXComponentCount, GXCompType, GXCompTypeNumber, GXCompTypeColor
+from gclib.gx_enums import GXAttr, GXComponentCount
 import gclib.gx_enums as GX
 
 IMPLEMENTED_CHUNK_TYPES = [
@@ -326,21 +326,21 @@ GXAttr_TO_VTX1DataOffsetIndex = {
   GXAttr.Tex7    : VTX1DataOffsetIndex.TexCoord7Data,
 }
 
-GXCompTypeNumber_TO_COMPONENT_BYTE_SIZE = {
-  GXCompTypeNumber.Unsigned8 : 1,
-  GXCompTypeNumber.Signed8   : 1,
-  GXCompTypeNumber.Unsigned16: 2,
-  GXCompTypeNumber.Signed16  : 2,
-  GXCompTypeNumber.Float32   : 4,
+GXCompType_TO_NUMBER_COMPONENT_BYTE_SIZE = {
+  GX.CompType.Unsigned8 : 1,
+  GX.CompType.Signed8   : 1,
+  GX.CompType.Unsigned16: 2,
+  GX.CompType.Signed16  : 2,
+  GX.CompType.Float32   : 4,
 }
 
-GXCompTypeColor_TO_COMPONENT_BYTE_SIZE = {
-  GXCompTypeColor.RGB565: 2,
-  GXCompTypeColor.RGB8  : 1,
-  GXCompTypeColor.RGBX8 : 1,
-  GXCompTypeColor.RGBA4 : 2,
-  GXCompTypeColor.RGBA6 : 1,
-  GXCompTypeColor.RGBA8 : 1,
+GXCompType_TO_COLOR_COMPONENT_BYTE_SIZE = {
+  GX.CompType.RGB565: 2,
+  GX.CompType.RGB8  : 1,
+  GX.CompType.RGBX8 : 1,
+  GX.CompType.RGBA4 : 2,
+  GX.CompType.RGBA6 : 1,
+  GX.CompType.RGBA8 : 1,
 }
 
 @bunfoe
@@ -349,7 +349,7 @@ class VertexFormat(BUNFOE):
   
   attribute_type: GXAttr
   component_count_type: GXComponentCount
-  _component_type: u32 # GXCompType
+  component_type: GX.CompType
   component_shift: u8
   _padding_1: u8 = 0xFF
   _padding_2: u16 = 0xFFFF
@@ -363,22 +363,11 @@ class VertexFormat(BUNFOE):
     return self.attribute_type in [GXAttr.Color0, GXAttr.Color1]
   
   @property
-  def component_type(self):
-    if self.is_color_attr:
-      return GXCompTypeColor(self._component_type)
-    else:
-      return GXCompTypeNumber(self._component_type)
-  
-  @component_type.setter
-  def component_type(self, value):
-    self._component_type = value.value
-  
-  @property
   def component_count(self):
     if self.is_color_attr:
-      if self.component_type in [GXCompTypeColor.RGB565, GXCompTypeColor.RGBA4]:
+      if self.component_type in [GX.CompType.RGB565, GX.CompType.RGBA4]:
         return 1
-      elif self.component_type in [GXCompTypeColor.RGB8, GXCompTypeColor.RGBX8, GXCompTypeColor.RGBA6, GXCompTypeColor.RGBA8]:
+      elif self.component_type in [GX.CompType.RGB8, GX.CompType.RGBX8, GX.CompType.RGBA6, GX.CompType.RGBA8]:
         return 4
       else:
         raise NotImplementedError
@@ -411,9 +400,9 @@ class VertexFormat(BUNFOE):
   @property
   def component_size(self):
     if self.is_color_attr:
-      return GXCompTypeColor_TO_COMPONENT_BYTE_SIZE[self.component_type]
+      return GXCompType_TO_COLOR_COMPONENT_BYTE_SIZE[self.component_type]
     else:
-      return GXCompTypeNumber_TO_COMPONENT_BYTE_SIZE[self.component_type]
+      return GXCompType_TO_NUMBER_COMPONENT_BYTE_SIZE[self.component_type]
 
 class VTX1(J3DChunk):
   def read_chunk_specific_data(self):
@@ -486,46 +475,52 @@ class VTX1(J3DChunk):
     
     return data_count
   
-  def load_attribute_data(self, vertex_format: VertexFormat):
-    self.attributes[vertex_format.attribute_type] = self.load_attribute_list(
-      vertex_format.data_offset_index,
-      vertex_format.component_count,
-      vertex_format.component_type,
-      vertex_format.component_size,
-      vertex_format.component_shift,
-    )
+  def load_attribute_data(self, vtxfmt: VertexFormat):
+    self.attributes[vtxfmt.attribute_type] = self.load_attribute_list(vtxfmt)
   
-  def load_attribute_list(self, offset_index, component_count, comp_type, comp_size, comp_shift):
-    data_offset = self.vertex_data_offsets[offset_index]
-    attrib_count = self.get_attribute_data_count(offset_index, component_count, comp_size)
+  def load_attribute_list(self, vtxfmt: VertexFormat):
+    data_offset = self.vertex_data_offsets[vtxfmt.data_offset_index]
+    attrib_count = self.get_attribute_data_count(vtxfmt.data_offset_index, vtxfmt.component_count, vtxfmt.component_size)
     attr_data = []
     for i in range(0, attrib_count):
-      components = self.read_components(component_count, comp_type, comp_size, comp_shift, data_offset)
+      components = self.read_components(vtxfmt, data_offset)
       attr_data.append(components)
-      data_offset += component_count * comp_size
+      data_offset += vtxfmt.component_count * vtxfmt.component_size
     return attr_data
   
-  def read_components(self, component_count, comp_type, comp_size, comp_shift, data_offset):
-    divisor = (1 << comp_shift)
+  def read_components(self, vtxfmt: VertexFormat, data_offset):
+    divisor = (1 << vtxfmt.component_shift)
     components = []
-    for i in range(component_count):
-      match comp_type:
-        case GXCompTypeNumber.Unsigned8:
-          components.append(fs.read_u8(self.data, data_offset) / divisor)
-        case GXCompTypeNumber.Signed8:
-          components.append(fs.read_s8(self.data, data_offset) / divisor)
-        case GXCompTypeNumber.Unsigned16:
-          components.append(fs.read_u16(self.data, data_offset) / divisor)
-        case GXCompTypeNumber.Signed16:
-          components.append(fs.read_s16(self.data, data_offset) / divisor)
-        case GXCompTypeNumber.Float32:
-          components.append(fs.read_float(self.data, data_offset) / divisor)
-        case GXCompTypeColor.RGBA8:
-          components.append(fs.read_u8(self.data, data_offset) / 255)
-        case _:
-          raise NotImplementedError
-      data_offset += comp_size
+    for i in range(vtxfmt.component_count):
+      if vtxfmt.is_color_attr:
+        component = self.read_color_component(vtxfmt.component_type, data_offset, divisor)
+      else:
+        component = self.read_number_component(vtxfmt.component_type, data_offset, divisor)
+      components.append(component)
+      data_offset += vtxfmt.component_size
     return tuple(components)
+  
+  def read_number_component(self, comp_type: GX.CompType, data_offset, divisor):
+    match comp_type:
+      case GX.CompType.Unsigned8:
+        return fs.read_u8(self.data, data_offset) / divisor
+      case GX.CompType.Signed8:
+        return fs.read_s8(self.data, data_offset) / divisor
+      case GX.CompType.Unsigned16:
+        return fs.read_u16(self.data, data_offset) / divisor
+      case GX.CompType.Signed16:
+        return fs.read_s16(self.data, data_offset) / divisor
+      case GX.CompType.Float32:
+        return fs.read_float(self.data, data_offset) / divisor
+      case _:
+        raise NotImplementedError
+  
+  def read_color_component(self, comp_type: GX.CompType, data_offset, divisor):
+    match comp_type:
+      case GX.CompType.RGBA8:
+        return fs.read_u8(self.data, data_offset) / 255
+      case _:
+        raise NotImplementedError
   
   def save_chunk_specific_data(self):
     # Cut off all the data, we're rewriting it entirely.
@@ -565,40 +560,48 @@ class VTX1(J3DChunk):
     self.vertex_data_offsets[vertex_format.data_offset_index] = data_offset
     data_offset = self.save_attribute_list(
       self.attributes[vertex_format.attribute_type],
-      vertex_format.component_count,
-      vertex_format.component_type,
-      vertex_format.component_size,
-      vertex_format.component_shift,
+      vertex_format,
       data_offset,
     )
     return data_offset
   
-  def save_attribute_list(self, attr_data, component_count, comp_type: GXCompType, comp_size, comp_shift, data_offset):
+  def save_attribute_list(self, attr_data, vtxfmt: VertexFormat, data_offset):
     for components in attr_data:
-      assert len(components) == component_count
-      data_offset = self.save_components(comp_type, comp_size, comp_shift, components, data_offset)
+      assert len(components) == vtxfmt.component_count
+      data_offset = self.save_components(vtxfmt, components, data_offset)
     return data_offset
   
-  def save_components(self, comp_type: GXCompType, comp_size, comp_shift, components, data_offset):
-    divisor = (1 << comp_shift)
+  def save_components(self, vtxfmt: VertexFormat, components, data_offset):
+    divisor = (1 << vtxfmt.component_shift)
     for component in components:
-      match comp_type:
-        case GXCompTypeNumber.Unsigned8:
-          fs.write_u8(self.data, data_offset, round(component*divisor))
-        case GXCompTypeNumber.Signed8:
-          fs.write_s8(self.data, data_offset, round(component*divisor))
-        case GXCompTypeNumber.Unsigned16:
-          fs.write_u16(self.data, data_offset, round(component*divisor))
-        case GXCompTypeNumber.Signed16:
-          fs.write_s16(self.data, data_offset, round(component*divisor))
-        case GXCompTypeNumber.Float32:
-          fs.write_float(self.data, data_offset, component*divisor)
-        case GXCompTypeColor.RGBA8:
-          fs.write_u8(self.data, data_offset, round(component*255))
-        case _:
-          raise NotImplementedError
-      data_offset += comp_size
+      if vtxfmt.is_color_attr:
+        self.save_color_component(vtxfmt.component_type, component, data_offset, divisor)
+      else:
+        self.save_number_component(vtxfmt.component_type, component, data_offset, divisor)
+      data_offset += vtxfmt.component_size
     return data_offset
+  
+  def save_number_component(self, comp_type: GX.CompType, component, data_offset, divisor):
+    match comp_type:
+      case GX.CompType.Unsigned8:
+        fs.write_u8(self.data, data_offset, round(component*divisor))
+      case GX.CompType.Signed8:
+        fs.write_s8(self.data, data_offset, round(component*divisor))
+      case GX.CompType.Unsigned16:
+        fs.write_u16(self.data, data_offset, round(component*divisor))
+      case GX.CompType.Signed16:
+        fs.write_s16(self.data, data_offset, round(component*divisor))
+      case GX.CompType.Float32:
+        fs.write_float(self.data, data_offset, component*divisor)
+      case _:
+        raise NotImplementedError
+  
+  def save_color_component(self, comp_type: GX.CompType, component, data_offset, divisor):
+    match comp_type:
+      case GX.CompType.RGBA8:
+        fs.write_u8(self.data, data_offset, round(component*255))
+      case _:
+        raise NotImplementedError
 
 class JNT1(J3DChunk):
   def read_chunk_specific_data(self):

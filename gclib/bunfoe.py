@@ -15,6 +15,7 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
+# TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
 
 class BUNFOE:
   """Binary-UNpacking Field-Owning Entity.
@@ -286,7 +287,7 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
   return Field(default, default_factory, init, repr, hash, compare,
                metadata, kw_only, ignore, assert_default)
 
-def fields(class_or_instance):
+def fields(class_or_instance) -> tuple[Field, ...]:
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
     raise TypeError(f'{class_or_instance} does not inherit from BUNFOE') from None
   if not hasattr(class_or_instance, dataclasses._FIELDS):

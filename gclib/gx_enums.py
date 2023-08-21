@@ -44,17 +44,13 @@ class GXComponentCount(u32, Enum):
   TexCoord_S  = 0x00
   TexCoord_ST = 0x01
 
-class GXCompType(u32, Enum):
-  pass
-
-class GXCompTypeNumber(GXCompType):
+class CompType(u32, Enum):
   Unsigned8  = 0x00
   Signed8    = 0x01
   Unsigned16 = 0x02
   Signed16   = 0x03
   Float32    = 0x04
   
-class GXCompTypeColor(GXCompType):
   RGB565 = 0x00
   RGB8   = 0x01
   RGBX8  = 0x02
