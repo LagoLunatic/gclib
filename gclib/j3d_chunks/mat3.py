@@ -194,20 +194,38 @@ class Material(BUNFOE):
     if 'indexed_by' not in field.metadata:
       return super().read_field(field, offset)
     
+    index_type, list_attr_name = field.metadata['indexed_by']
+    
     if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
+      max_index_to_read = None
+      if list_attr_name == 'tev_swap_mode_table_list_offset':
+        # These indexes are themselves indexed by the ras/tex sels of tev_swap_mode_list_offset.
+        # The problem is that if we just read all of these indexes, the later ones that aren't
+        # actually used frequently have junk data for indexes, which would result in us reading out
+        # of bounds. So we have to ensure we *only* read the valid indexes are that used.
+        max_index_to_read = max(
+          max(sm.ras_sel, sm.tex_sel)
+          for sm in self.tev_swap_modes
+          if sm is not None
+        )
+        print(max_index_to_read)
+      
       arg_values = []
       for arg_index, arg_type in enumerate(typing.get_args(field.type)):
-        arg_value, offset = self.read_indexed_value(arg_type, offset, field.metadata['indexed_by'])
+        if max_index_to_read is not None and arg_index > max_index_to_read:
+          offset += self.get_byte_size(index_type)
+          arg_values.append(None)
+          continue
+        arg_value, offset = self.read_indexed_value(arg_type, offset, index_type, list_attr_name)
         arg_values.append(arg_value)
       value = field.type(arg_values)
     else:
-      value, offset = self.read_indexed_value(field.type, offset, field.metadata['indexed_by'])
+      value, offset = self.read_indexed_value(field.type, offset, index_type, list_attr_name)
     
     setattr(self, field.name, value)
     return offset
   
-  def read_indexed_value(self, value_type: Type, offset: int, indexed_by: tuple) -> tuple[Any, int]:
-    index_type, list_attr_name = indexed_by
+  def read_indexed_value(self, value_type: Type, offset: int, index_type: Type, list_attr_name: str) -> tuple[Any, int]:
     index = self.read_value(index_type, offset)
     offset += self.get_byte_size(index_type)
     
@@ -226,16 +244,17 @@ class Material(BUNFOE):
     
     value = getattr(self, field.name)
     
+    index_type, list_attr_name = field.metadata['indexed_by']
+    
     if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
       for i, arg_type in enumerate(typing.get_args(field.type)):
-        offset = self.save_indexed_value(arg_type, offset, value[i], field.metadata['indexed_by'])
+        offset = self.save_indexed_value(arg_type, offset, value[i], index_type, list_attr_name)
     else:
-      offset = self.save_indexed_value(field.type, offset, value, field.metadata['indexed_by'])
+      offset = self.save_indexed_value(field.type, offset, value, index_type, list_attr_name)
     
     return offset
   
-  def save_indexed_value(self, value_type: Type, offset: int, value: Any, indexed_by: tuple) -> int:
-    index_type, list_attr_name = indexed_by
+  def save_indexed_value(self, value_type: Type, offset: int, value: Any, index_type: Type, list_attr_name: str) -> int:
     # if value == -1 and not fs.PRIMITIVE_TYPE_IS_SIGNED[index_type]:
     if value is None:
       max_val = (1 << self.get_byte_size(index_type)*8) - 1

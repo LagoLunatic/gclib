@@ -11,7 +11,6 @@ import functools
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
-# TODO: implement ignore field argument to avoid automatically reading/writing certain fields.
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
@@ -65,8 +64,6 @@ class BUNFOE:
   def read(self, offset: int) -> int:
     orig_offset = offset
     for field in fields(self):
-      if field.ignore:
-        continue
       offset = self.read_field(field, offset)
     
     assert offset >= orig_offset
@@ -77,6 +74,8 @@ class BUNFOE:
     return offset
   
   def read_field(self, field: Field, offset: int) -> int:
+    if field.ignore:
+      return offset
     value = self.read_value(field.type, offset)
     offset += self.get_byte_size(field.type)
     setattr(self, field.name, value)
@@ -126,8 +125,6 @@ class BUNFOE:
   def save(self, offset: int) -> int:
     orig_offset = offset
     for field in fields(self):
-      if field.ignore:
-        continue
       offset = self.save_field(field, offset)
     
     assert offset >= orig_offset
@@ -138,6 +135,8 @@ class BUNFOE:
     return offset
   
   def save_field(self, field: Field, offset: int) -> int:
+    if field.ignore:
+      return offset
     value = getattr(self, field.name)
     self.save_value(field.type, offset, value)
     offset += self.get_byte_size(field.type)
