@@ -110,8 +110,8 @@ class TRK1(JChunk):
     
     reg_animations = []
     konst_animations = []
-    self.mat_name_to_reg_anims = {}
-    self.mat_name_to_konst_anims = {}
+    self.mat_name_to_reg_anims: dict[str, list[ColorAnimation]] = {}
+    self.mat_name_to_konst_anims: dict[str, list[ColorAnimation]] = {}
     
     offset = reg_color_anims_offset
     for i in range(reg_color_anims_count):

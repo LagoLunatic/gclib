@@ -208,7 +208,6 @@ class Material(BUNFOE):
           for sm in self.tev_swap_modes
           if sm is not None
         )
-        print(max_index_to_read)
       
       arg_values = []
       for arg_index, arg_type in enumerate(typing.get_args(field.type)):

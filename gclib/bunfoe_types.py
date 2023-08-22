@@ -49,8 +49,23 @@ class Matrix4x4(Matrix):
   r2: list[(float,)*4]
   r3: list[(float,)*4]
 
-class RGBA(BUNFOE):
-  pass
+class RGB(BUNFOE):
+  @property
+  def rgb(self):
+    return (self.r, self.g, self.b)
+  
+  @rgb.setter
+  def rgb(self, value):
+    self.r, self.g, self.b = value
+
+class RGBA(RGB):
+  @property
+  def rgba(self):
+    return (self.r, self.g, self.b, self.a)
+  
+  @rgba.setter
+  def rgba(self, value):
+    self.r, self.g, self.b, self.a = value
 
 @bunfoe
 class RGBAu8(RGBA):

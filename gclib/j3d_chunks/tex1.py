@@ -15,7 +15,7 @@ class TEX1(JChunk):
     
     self.string_table_offset = fs.read_u32(self.data, 0x10)
     self.texture_names = self.read_string_table(self.string_table_offset)
-    self.textures_by_name = {}
+    self.textures_by_name: dict[str, list[BTI]] = {}
     for i, texture in enumerate(self.textures):
       texture_name = self.texture_names[i]
       if texture_name not in self.textures_by_name:
