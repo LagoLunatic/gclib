@@ -48,12 +48,14 @@ class BUNFOE:
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           return BUNFOE.get_byte_size(base_class)
-      raise Exception("Enum must inherit from a primitive int subclass.")
+      raise Exception(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       # NOTE: This currently relies on the class defining all fields, including any trailing
       # padding. Maybe in the future it could double check a DATA_SIZE/BYTE_SIZE constant.
       size = 0
       for subfield in fields(field_type):
+        if subfield.ignore:
+          continue
         size += BUNFOE.get_byte_size(subfield.type)
       return size
     else:
@@ -63,6 +65,8 @@ class BUNFOE:
   def read(self, offset: int) -> int:
     orig_offset = offset
     for field in fields(self):
+      if field.ignore:
+        continue
       offset = self.read_field(field, offset)
     
     assert offset >= orig_offset
@@ -101,7 +105,7 @@ class BUNFOE:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           raw_value = self.read_value(base_class, offset)
           return field_type(raw_value)
-      raise Exception("Enum must inherit from a primitive int subclass.")
+      raise Exception(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       value = field_type(self.data)
       value.read(offset)
@@ -122,6 +126,8 @@ class BUNFOE:
   def save(self, offset: int) -> int:
     orig_offset = offset
     for field in fields(self):
+      if field.ignore:
+        continue
       offset = self.save_field(field, offset)
     
     assert offset >= orig_offset
@@ -161,7 +167,7 @@ class BUNFOE:
           raw_value = value.value
           self.save_value(base_class, offset, raw_value)
           return
-      raise Exception("Enum must inherit from a primitive int subclass.")
+      raise Exception(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       value.save(offset)
     else:

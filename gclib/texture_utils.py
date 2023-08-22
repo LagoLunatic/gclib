@@ -6,6 +6,7 @@ from enum import Enum
 import operator
 
 from gclib import fs_helpers as fs
+from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
 try:
   import pyfastbti # type: ignore
@@ -22,7 +23,7 @@ except ImportError:
 class TooManyColorsError(Exception):
   pass
 
-class ImageFormat(Enum):
+class ImageFormat(u8, Enum):
   I4     =   0
   I8     =   1
   IA4    =   2

@@ -1,10 +1,11 @@
-from dataclasses import dataclass
 from enum import Enum
 from collections import defaultdict
 from PIL import Image
 import struct
 
 from gclib import fs_helpers as fs
+from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
 from io import BytesIO
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk
@@ -195,61 +196,40 @@ class BFN(GCLibFile):
     
     return image
 
-class EncodingType(Enum):
+class EncodingType(u16, Enum):
   SINGLE_BYTE = 0 # CP-1252
   TWO_BYTE = 1
   SHIFT_JIS = 2 # Characters can be either one byte or two bytes
 
-@dataclass
+@bunfoe
 class INF1(JChunk):
-  encoding_type: EncodingType = None
-  ascent: int = None
-  descent: int = None
-  char_width: int = None
-  leading: int = None
-  replacement_code: int = None
-  
-  def read_chunk_specific_data(self):
-    self.encoding_type = EncodingType(fs.read_u16(self.data, 0x08))
-    self.ascent = fs.read_u16(self.data, 0x0A)
-    self.descent = fs.read_u16(self.data, 0x0C)
-    self.char_width = fs.read_u16(self.data, 0x0E)
-    self.leading = fs.read_u16(self.data, 0x10) # Line height (seems to be ascent + descent)
-    self.replacement_code = fs.read_u16(self.data, 0x12)
+  encoding_type: EncodingType
+  ascent: u16
+  descent: u16
+  char_width: u16
+  leading: u16 # Line height (seems to be ascent + descent)
+  replacement_code: u16
 
-class BFNMappingType(Enum):
+class BFNMappingType(u16, Enum):
   LINEAR_MAPPED = 0
   SJIS_MAPPED   = 1
   TABLE_MAPPED  = 2
   MAP_MAPPED    = 3
 
-@dataclass
+@bunfoe
 class GLY1(JChunk):
-  first_code: int = None
-  last_code: int = None
-  cell_width: int = None
-  cell_height: int = None
-  sheet_byte_size: int = None
-  image_format: ImageFormat = None
-  rows_per_sheet: int = None
-  cols_per_sheet: int = None
-  sheet_width: int = None
-  sheet_height: int = None
-  sheet_images: list[Image.Image] = None
-  
-  def read_chunk_specific_data(self):
-    self.first_code = fs.read_u16(self.data, 0x08)
-    self.last_code = fs.read_u16(self.data, 0x0A)
-    self.cell_width = fs.read_u16(self.data, 0x0C)
-    self.cell_height = fs.read_u16(self.data, 0x0E)
-    self.sheet_byte_size = fs.read_u32(self.data, 0x10)
-    self.image_format = ImageFormat(fs.read_u16(self.data, 0x14))
-    self.rows_per_sheet = fs.read_u16(self.data, 0x16)
-    self.cols_per_sheet = fs.read_u16(self.data, 0x18)
-    self.sheet_width = fs.read_u16(self.data, 0x1A)
-    self.sheet_height = fs.read_u16(self.data, 0x1C)
-    
-    assert self.image_format not in IMAGE_FORMATS_THAT_USE_PALETTES
+  first_code: u16
+  last_code: u16
+  cell_width: u16
+  cell_height: u16
+  sheet_byte_size: u32
+  _padding_1: u8
+  image_format: ImageFormat # Actually u16, but only lower byte is used
+  rows_per_sheet: u16
+  cols_per_sheet: u16
+  sheet_width: u16
+  sheet_height: u16
+  sheet_images: list[Image.Image] = field(ignore=True)
   
   @property
   def cells_per_sheet(self):
@@ -258,6 +238,8 @@ class GLY1(JChunk):
   def render_sheets(self):
     if self.sheet_images:
       return
+    
+    assert self.image_format not in IMAGE_FORMATS_THAT_USE_PALETTES
     
     sheet_count = ((self.last_code - self.first_code) // (self.rows_per_sheet * self.cols_per_sheet)) + 1
     assert(self.size == 0x20 + sheet_count*self.sheet_byte_size)
@@ -274,19 +256,14 @@ class GLY1(JChunk):
       self.sheet_images.append(sheet_image)
       offset += self.sheet_byte_size
 
-@dataclass
+@bunfoe
 class MAP1(JChunk):
-  mapping_type: BFNMappingType = None
-  first_character: int = None
-  last_character: int = None
-  entry_count: int = None
+  mapping_type: BFNMappingType
+  first_character: u16
+  last_character: u16
+  entry_count: u16
   
   def read_chunk_specific_data(self):
-    self.mapping_type = BFNMappingType(fs.read_u16(self.data, 0x08))
-    self.first_character = fs.read_u16(self.data, 0x0A)
-    self.last_character = fs.read_u16(self.data, 0x0C)
-    self.entry_count = fs.read_u16(self.data, 0x0E)
-    
     self.read_char_code_mapping()
   
   def read_char_code_mapping(self):
@@ -328,31 +305,23 @@ class MAP1(JChunk):
           self.code_to_char_ord[code] = char_ord
       case _:
         raise NotImplementedError
+  
+  # TODO: save changes to the dict
 
-@dataclass
-class CodeWidthInfo:
+@bunfoe
+class CodeWidthInfo(BUNFOE):
   DATA_SIZE = 2
   
-  kerning: int
-  width: int
-  
-  def __init__(self, data):
-    self.data = data
-  
-  def read(self, offset):
-    self.kerning = fs.read_u8(self.data, offset+0)
-    self.width = fs.read_u8(self.data, offset+1)
+  kerning: u8
+  width: u8
 
-@dataclass
+@bunfoe
 class WID1(JChunk):
-  first_code: int = None
-  last_code: int = None
-  code_to_width_info: dict[int, CodeWidthInfo] = None
+  first_code: u16
+  last_code: u16
+  code_to_width_info: dict[int, CodeWidthInfo] = field(ignore=True)
   
   def read_chunk_specific_data(self):
-    self.first_code = fs.read_u16(self.data, 0x08)
-    self.last_code = fs.read_u16(self.data, 0x0A)
-    
     self.code_to_width_info = {}
     offset = 0x0C
     for i in range(self.last_code-self.first_code):
@@ -360,3 +329,5 @@ class WID1(JChunk):
       width_info.read(offset)
       self.code_to_width_info[self.first_code+i] = width_info
       offset += CodeWidthInfo.DATA_SIZE
+  
+  # TODO: save changes to the dict
