@@ -7,7 +7,7 @@ from enum import Enum
 from gclib import fs_helpers as fs
 
 from gclib.bti import BTI
-from gclib.j3d import J3DChunk
+from gclib.jchunk import JChunk
 
 IMPLEMENTED_CHUNK_TYPES = [
   "BSP1",
@@ -317,7 +317,7 @@ class Particle:
       
       # TODO: write back all header changes.
 
-class JPAChunk(J3DChunk):
+class JPAChunk(JChunk):
   def __init__(self, data, version: JPACVersion):
     super().__init__(data)
     self.version = version

@@ -1,7 +1,7 @@
 from enum import Enum
 from gclib.fs_helpers import u32, u8
 
-class GXAttr(u32, Enum):
+class Attr(u32, Enum):
   PositionMatrixIndex   = 0x00
   Tex0MatrixIndex       = 0x01
   Tex1MatrixIndex       = 0x02
@@ -30,7 +30,7 @@ class GXAttr(u32, Enum):
   NormalBinormalTangent = 0x19
   NULL                  = 0xFF
 
-class GXComponentCount(u32, Enum):
+class ComponentCount(u32, Enum):
   Position_XY  = 0x00
   Position_XYZ = 0x01
 
@@ -44,7 +44,7 @@ class GXComponentCount(u32, Enum):
   TexCoord_S  = 0x00
   TexCoord_ST = 0x01
 
-class CompType(u32, Enum):
+class ComponentType(u32, Enum):
   Unsigned8  = 0x00
   Signed8    = 0x01
   Unsigned16 = 0x02
@@ -58,6 +58,12 @@ class CompType(u32, Enum):
   RGBA6  = 0x04
   RGBA8  = 0x05
 
+class CullMode(u32, Enum):
+  Cull_None  = 0x00
+  Cull_Front = 0x01
+  Cull_Back  = 0x02
+  Cull_All   = 0x03
+
 class CompareType(u8, Enum):
   Never         = 0
   Less          = 1
@@ -67,6 +73,26 @@ class CompareType(u8, Enum):
   Not_Equal     = 5
   Greater_Equal = 6
   Always        = 7
+
+class AlphaOp(u8, Enum):
+  AND  = 0x00
+  OR   = 0x01
+  XOR  = 0x02
+  XNOR = 0x03
+
+class ColorSrc(u8, Enum):
+  Register = 0x00
+  Vertex   = 0x01
+
+class DiffuseFunction(u8, Enum):
+  None_  = 0x00
+  Signed = 0x01
+  Clamp  = 0x02
+
+class AttenuationFunction(u8, Enum):
+  Specular = 0x00
+  Spot     = 0x01
+  None_    = 0x02
 
 class BlendMode(u8, Enum):
   None_    = 0x00

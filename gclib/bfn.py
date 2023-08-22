@@ -7,7 +7,7 @@ import struct
 from gclib import fs_helpers as fs
 from io import BytesIO
 from gclib.gclib_file import GCLibFile
-from gclib.j3d import J3DChunk
+from gclib.jchunk import JChunk
 from gclib.texture_utils import ImageFormat, IMAGE_FORMATS_THAT_USE_PALETTES, decode_image
 
 class BFN(GCLibFile):
@@ -44,7 +44,7 @@ class BFN(GCLibFile):
       if chunk_magic in BFN.IMPLEMENTED_CHUNK_TYPES:
         chunk_class = globals().get(chunk_magic, None)
       else:
-        chunk_class = J3DChunk
+        chunk_class = JChunk
       
       size = fs.read_u32(self.data, offset+4)
       chunk_data = fs.read_sub_data(self.data, offset, size)
@@ -201,7 +201,7 @@ class EncodingType(Enum):
   SHIFT_JIS = 2 # Characters can be either one byte or two bytes
 
 @dataclass
-class INF1(J3DChunk):
+class INF1(JChunk):
   encoding_type: EncodingType = None
   ascent: int = None
   descent: int = None
@@ -224,7 +224,7 @@ class BFNMappingType(Enum):
   MAP_MAPPED    = 3
 
 @dataclass
-class GLY1(J3DChunk):
+class GLY1(JChunk):
   first_code: int = None
   last_code: int = None
   cell_width: int = None
@@ -275,7 +275,7 @@ class GLY1(J3DChunk):
       offset += self.sheet_byte_size
 
 @dataclass
-class MAP1(J3DChunk):
+class MAP1(JChunk):
   mapping_type: BFNMappingType = None
   first_character: int = None
   last_character: int = None
@@ -344,7 +344,7 @@ class CodeWidthInfo:
     self.width = fs.read_u8(self.data, offset+1)
 
 @dataclass
-class WID1(J3DChunk):
+class WID1(JChunk):
   first_code: int = None
   last_code: int = None
   code_to_width_info: dict[int, CodeWidthInfo] = None
