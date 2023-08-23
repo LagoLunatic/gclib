@@ -41,4 +41,7 @@ class JNT1(JChunk):
       self.joints_by_name[joint_name] = joint
   
   def save_chunk_specific_data(self):
-    pass
+    offset = self.joint_data_offset
+    for joint in self.joints:
+      joint.save(offset)
+      offset += Joint.DATA_SIZE
