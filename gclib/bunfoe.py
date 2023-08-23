@@ -38,11 +38,6 @@ class BUNFOE:
       return BUNFOE.get_byte_size(u16)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
       return typing.get_args(field_type)[0]
-    elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
-      size = 0
-      for arg_type in typing.get_args(field_type):
-        size += BUNFOE.get_byte_size(arg_type)
-      return size
     elif issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
@@ -55,10 +50,23 @@ class BUNFOE:
       for subfield in fields(field_type):
         if subfield.ignore:
           continue
-        size += BUNFOE.get_byte_size(subfield.type)
+        if isinstance(subfield.type, GenericAlias) and subfield.type.__origin__ == list:
+          size += BUNFOE.get_list_field_byte_size(subfield)
+        else:
+          size += BUNFOE.get_byte_size(subfield.type)
       return size
     else:
       raise NotImplementedError
+  
+  @staticmethod
+  def get_list_field_byte_size(field: Field):
+    assert isinstance(field.length, int) and field.length > 0
+    type_args = typing.get_args(field.type)
+    assert len(type_args) == 1
+    arg_type = type_args[0]
+    
+    arg_size = BUNFOE.get_byte_size(arg_type)
+    return arg_size * field.length
   
   #region Reading
   def read(self, offset: int) -> int:
@@ -76,10 +84,29 @@ class BUNFOE:
   def read_field(self, field: Field, offset: int) -> int:
     if field.ignore:
       return offset
-    value = self.read_value(field.type, offset)
-    offset += self.get_byte_size(field.type)
+    
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      value, offset = self.read_list_field(field, offset)
+    else:
+      value = self.read_value(field.type, offset)
+      offset += self.get_byte_size(field.type)
+    
     setattr(self, field.name, value)
     return offset
+  
+  def read_list_field(self, field: Field, offset: int) -> tuple[Any, int]:
+    assert isinstance(field.length, int) and field.length > 0
+    type_args = typing.get_args(field.type)
+    assert len(type_args) == 1
+    arg_type = type_args[0]
+    
+    value = []
+    for i in range(field.length):
+      element = self.read_value(arg_type, offset)
+      offset += self.get_byte_size(arg_type)
+      value.append(element)
+    
+    return value, offset
   
   def read_value(self, field_type: Type, offset: int) -> Any:
     # TODO: instead of Any use TypeVar here
@@ -97,8 +124,6 @@ class BUNFOE:
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
       str_len = typing.get_args(field_type)[0]
       return fs.read_str(self.data, offset, str_len)
-    elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
-      return self.read_sequence(field_type, offset)
     elif issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
@@ -111,14 +136,6 @@ class BUNFOE:
       return value
     else:
       raise NotImplementedError
-  
-  def read_sequence(self, field_type: Type, offset: int) -> Sequence:
-    values = []
-    for arg_type in typing.get_args(field_type):
-      value = self.read_value(arg_type, offset)
-      values.append(value)
-      offset += self.get_byte_size(arg_type)
-    return field_type(values)
   #endregion
   
   #region Saving
@@ -138,8 +155,27 @@ class BUNFOE:
     if field.ignore:
       return offset
     value = getattr(self, field.name)
-    self.save_value(field.type, offset, value)
-    offset += self.get_byte_size(field.type)
+    
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      offset = self.save_list_field(field, offset, value)
+      
+    else:
+      self.save_value(field.type, offset, value)
+      offset += self.get_byte_size(field.type)
+    
+    return offset
+  
+  def save_list_field(self, field: Field, offset: int, value) -> int:
+    assert isinstance(field.length, int) and field.length > 0
+    assert len(value) == field.length
+    type_args = typing.get_args(field.type)
+    assert len(type_args) == 1
+    arg_type = type_args[0]
+    
+    for i in range(field.length):
+      self.save_value(arg_type, offset, value[i])
+      offset += self.get_byte_size(arg_type)
+    
     return offset
   
   def save_value(self, field_type: Type, offset: int, value: Any) -> None:
@@ -158,8 +194,6 @@ class BUNFOE:
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ == MagicStr:
       str_len = typing.get_args(field_type)[0]
       fs.write_magic_str(self.data, offset, value, str_len)
-    elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [tuple, list]:
-      self.save_sequence(field_type, offset, value)
     elif issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
@@ -171,11 +205,6 @@ class BUNFOE:
       value.save(offset)
     else:
       raise NotImplementedError
-  
-  def save_sequence(self, field_type: Type, offset: int, value: Sequence):
-    for i, arg_type in enumerate(typing.get_args(field_type)):
-      self.save_value(arg_type, offset, value[i])
-      offset += self.get_byte_size(arg_type)
   #endregion
 
 
@@ -242,12 +271,13 @@ class Field(dataclasses.Field):
                  '_field_type',  # Private: not to be used by user code.
                  
                  # Custom.
+                 'length',
                  'ignore',
                  'assert_default',
                  )
 
     def __init__(self, default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only, ignore, assert_default):
+                 metadata, kw_only, length, ignore, assert_default):
         self.name = None
         self.type = None
         self.default = default
@@ -263,6 +293,7 @@ class Field(dataclasses.Field):
         self._field_type = None
         
         # Custom.
+        self.length = length
         self.ignore = ignore
         self.assert_default = assert_default
 
@@ -282,15 +313,16 @@ class Field(dataclasses.Field):
                 f'_field_type={self._field_type},'
                 
                 # Custom.
+                f'length={self.length!r},'
                 f'ignore={self.ignore!r},'
                 f'assert_default={self.assert_default!r},'
                 ')')
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
-          ignore=False, assert_default=False):
+          length=None, ignore=False, assert_default=False):
   return Field(default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, ignore, assert_default)
+               metadata, kw_only, length, ignore, assert_default)
 
 def fields(class_or_instance) -> tuple[Field, ...]:
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):

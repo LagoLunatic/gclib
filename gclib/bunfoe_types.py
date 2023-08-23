@@ -1,6 +1,6 @@
 
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import bunfoe, BUNFOE, Field
+from gclib.bunfoe import bunfoe, BUNFOE, field
 
 class Vector(BUNFOE):
   pass
@@ -45,15 +45,15 @@ class Matrix(BUNFOE):
 
 @bunfoe
 class Matrix2x3(Matrix):
-  r0: list[(float,)*3]
-  r1: list[(float,)*3]
+  r0: list[float] =  field(length=3)
+  r1: list[float] =  field(length=3)
 
 @bunfoe
 class Matrix4x4(Matrix):
-  r0: list[(float,)*4]
-  r1: list[(float,)*4]
-  r2: list[(float,)*4]
-  r3: list[(float,)*4]
+  r0: list[float] = field(length=4)
+  r1: list[float] = field(length=4)
+  r2: list[float] = field(length=4)
+  r3: list[float] = field(length=4)
 
 class RGB(BUNFOE):
   @property

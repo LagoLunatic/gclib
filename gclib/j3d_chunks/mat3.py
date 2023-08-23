@@ -143,7 +143,7 @@ class FogInfo(BUNFOE):
   near_z           : float
   far_z            : float
   color            : RGBAu8
-  range_adjustments: list[(u16,)*10]
+  range_adjustments: list[u16] = field(length=10)
 
 @bunfoe
 class NBTScale(BUNFOE):
@@ -156,35 +156,35 @@ class NBTScale(BUNFOE):
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
-  pixel_engine_mode   : PixelEngineMode              = PixelEngineMode.Opaque
-  cull_mode           : GX.CullMode                  = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
-  num_color_chans     : u8                           = field(metadata={'indexed_by': (u8,  'num_color_chans_list_offset')})
-  num_tex_gens        : u8                           = field(metadata={'indexed_by': (u8,  'num_tex_gens_list_offset')})
-  num_tev_stages      : u8                           = field(metadata={'indexed_by': (u8,  'num_tev_stages_list_offset')})
-  z_compare           : bool                         = field(metadata={'indexed_by': (u8,  'z_compare_list_offset')})
-  z_mode              : ZMode                        = field(metadata={'indexed_by': (u8,  'z_mode_list_offset')})
-  dither              : bool                         = field(metadata={'indexed_by': (u8,  'dither_list_offset')})
-  material_colors     : list[(RGBAu8,)*2]            = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')})
-  color_channels      : list[(ColorChannel,)*4]      = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')})
-  ambient_colors      : list[(RGBAu8,)*2]            = field(metadata={'indexed_by': (u16, 'ambient_color_list_offset')})
-  light_colors        : list[(RGBAu8,)*8]            = field(metadata={'indexed_by': (u16, 'light_color_list_offset')})
-  tex_coord_gens      : list[(TexCoord,)*8]          = field(metadata={'indexed_by': (u16, 'tex_coord_gen_list_offset')})
-  post_tex_coord_gens : list[(TexCoord,)*8]          = field(metadata={'indexed_by': (u16, 'post_tex_coord_gen_list_offset')})
-  tex_matrixes        : list[(TexMatrix,)*10]        = field(metadata={'indexed_by': (u16, 'tex_matrix_list_offset')})
-  post_tex_matrixes   : list[(TexMatrix,)*20]        = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')})
-  textures            : list[(u16,)*8]               = field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')})
-  tev_konst_colors    : list[(RGBAu8,)*4]            = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')})
-  tev_konst_color_sels: list[(GX.KonstColorSel,)*16]
-  tev_konst_alpha_sels: list[(GX.KonstAlphaSel,)*16]
-  tev_orders          : list[(TevOrder,)*16]         = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')})
-  tev_colors          : list[(RGBAs16,)*4]           = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')})
-  tev_stages          : list[(TevStage,)*16]         = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')})
-  tev_swap_modes      : list[(TevSwapMode,)*16]      = field(metadata={'indexed_by': (u16, 'tev_swap_mode_list_offset')})
-  tev_swap_mode_tables: list[(TevSwapModeTable,)*16] = field(metadata={'indexed_by': (u16, 'tev_swap_mode_table_list_offset')})
-  fog_info            : FogInfo                      = field(metadata={'indexed_by': (u16, 'fog_list_offset')})
-  alpha_compare       : AlphaCompare                 = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
-  blend_mode          : BlendMode                    = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
-  nbt_scale           : NBTScale                     = field(metadata={'indexed_by': (u16, 'nbt_scale_list_offset')})
+  pixel_engine_mode   : PixelEngineMode        = PixelEngineMode.Opaque
+  cull_mode           : GX.CullMode            = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
+  num_color_chans     : u8                     = field(metadata={'indexed_by': (u8,  'num_color_chans_list_offset')})
+  num_tex_gens        : u8                     = field(metadata={'indexed_by': (u8,  'num_tex_gens_list_offset')})
+  num_tev_stages      : u8                     = field(metadata={'indexed_by': (u8,  'num_tev_stages_list_offset')})
+  z_compare           : bool                   = field(metadata={'indexed_by': (u8,  'z_compare_list_offset')})
+  z_mode              : ZMode                  = field(metadata={'indexed_by': (u8,  'z_mode_list_offset')})
+  dither              : bool                   = field(metadata={'indexed_by': (u8,  'dither_list_offset')})
+  material_colors     : list[RGBAu8]           = field(metadata={'indexed_by': (u16, 'mat_color_list_offset')}, length=2)
+  color_channels      : list[ColorChannel]     = field(metadata={'indexed_by': (u16, 'color_channel_list_offset')}, length=4)
+  ambient_colors      : list[RGBAu8]           = field(metadata={'indexed_by': (u16, 'ambient_color_list_offset')}, length=2)
+  light_colors        : list[RGBAu8]           = field(metadata={'indexed_by': (u16, 'light_color_list_offset')}, length=8)
+  tex_coord_gens      : list[TexCoord]         = field(metadata={'indexed_by': (u16, 'tex_coord_gen_list_offset')}, length=8)
+  post_tex_coord_gens : list[TexCoord]         = field(metadata={'indexed_by': (u16, 'post_tex_coord_gen_list_offset')}, length=8)
+  tex_matrixes        : list[TexMatrix]        = field(metadata={'indexed_by': (u16, 'tex_matrix_list_offset')}, length=10)
+  post_tex_matrixes   : list[TexMatrix]        = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')}, length=20)
+  textures            : list[u16]              = field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}, length=8)
+  tev_konst_colors    : list[RGBAu8]           = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')}, length=4)
+  tev_konst_color_sels: list[GX.KonstColorSel] = field(length=16)
+  tev_konst_alpha_sels: list[GX.KonstAlphaSel] = field(length=16)
+  tev_orders          : list[TevOrder]         = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')}, length=16)
+  tev_colors          : list[RGBAs16]          = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')}, length=4)
+  tev_stages          : list[TevStage]         = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')}, length=16)
+  tev_swap_modes      : list[TevSwapMode]      = field(metadata={'indexed_by': (u16, 'tev_swap_mode_list_offset')}, length=16)
+  tev_swap_mode_tables: list[TevSwapModeTable] = field(metadata={'indexed_by': (u16, 'tev_swap_mode_table_list_offset')}, length=16)
+  fog_info            : FogInfo                = field(metadata={'indexed_by': (u16, 'fog_list_offset')})
+  alpha_compare       : AlphaCompare           = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
+  blend_mode          : BlendMode              = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
+  nbt_scale           : NBTScale               = field(metadata={'indexed_by': (u16, 'nbt_scale_list_offset')})
   
   def __init__(self, data, mat3: 'MAT3'):
     super(Material, self).__init__(data)
@@ -196,7 +196,7 @@ class Material(BUNFOE):
     
     index_type, list_attr_name = field.metadata['indexed_by']
     
-    if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
       max_index_to_read = None
       if list_attr_name == 'tev_swap_mode_table_list_offset':
         # These indexes are themselves indexed by the ras/tex sels of tev_swap_mode_list_offset.
@@ -209,15 +209,18 @@ class Material(BUNFOE):
           if sm is not None
         )
       
-      arg_values = []
-      for arg_index, arg_type in enumerate(typing.get_args(field.type)):
-        if max_index_to_read is not None and arg_index > max_index_to_read:
+      assert isinstance(field.length, int) and field.length > 0
+      type_args = typing.get_args(field.type)
+      assert len(type_args) == 1
+      arg_type = type_args[0]
+      value = []
+      for i in range(field.length):
+        if max_index_to_read is not None and i > max_index_to_read:
           offset += self.get_byte_size(index_type)
-          arg_values.append(None)
+          value.append(None)
           continue
-        arg_value, offset = self.read_indexed_value(arg_type, offset, index_type, list_attr_name)
-        arg_values.append(arg_value)
-      value = field.type(arg_values)
+        element, offset = self.read_indexed_value(arg_type, offset, index_type, list_attr_name)
+        value.append(element)
     else:
       value, offset = self.read_indexed_value(field.type, offset, index_type, list_attr_name)
     
@@ -245,8 +248,13 @@ class Material(BUNFOE):
     
     index_type, list_attr_name = field.metadata['indexed_by']
     
-    if isinstance(field.type, GenericAlias) and field.type.__origin__ in [tuple, list]:
-      for i, arg_type in enumerate(typing.get_args(field.type)):
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      assert isinstance(field.length, int) and field.length > 0
+      assert len(value) == field.length
+      type_args = typing.get_args(field.type)
+      assert len(type_args) == 1
+      arg_type = type_args[0]
+      for i in range(field.length):
         offset = self.save_indexed_value(arg_type, offset, value[i], index_type, list_attr_name)
     else:
       offset = self.save_indexed_value(field.type, offset, value, index_type, list_attr_name)
@@ -305,10 +313,10 @@ class TextureIndirect(BUNFOE):
   enable            : bool
   num_ind_tex_stages: u8
   _padding_1        : u16 = 0xFFFF
-  tev_orders        : list[(IndirectTevOrder,)*4]
-  tex_matrixes      : list[(IndirectTexMatrix,)*3]
-  scales            : list[(IndirectTexScale,)*4]
-  tev_stages        : list[(IndirectTevStage,)*16]
+  tev_orders        : list[IndirectTevOrder]  = field(length=4)
+  tex_matrixes      : list[IndirectTexMatrix] = field(length=3)
+  scales            : list[IndirectTexScale]  = field(length=4)
+  tev_stages        : list[IndirectTevStage]  = field(length=16)
 
 @bunfoe
 class MAT3(JChunk):
