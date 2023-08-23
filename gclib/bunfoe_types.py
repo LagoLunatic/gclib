@@ -5,34 +5,40 @@ from gclib.bunfoe import bunfoe, BUNFOE, Field
 class Vector(BUNFOE):
   pass
 
-@bunfoe
-class Vec2float(Vector):
-  x: float
-  y: float
-  
+class Vector2(Vector):
   @property
   def xy(self):
     return (self.x, self.y)
+  
+  @xy.setter
+  def xy(self, value):
+    self.x, self.y = value
+
+class Vector3(Vector):
+  @property
+  def xyz(self):
+    return (self.x, self.y, self.z)
+  
+  @xyz.setter
+  def xyz(self, value):
+    self.x, self.y, self.z = value
 
 @bunfoe
-class Vec3float(Vector):
+class Vec2float(Vector2):
+  x: float
+  y: float
+
+@bunfoe
+class Vec3float(Vector3):
   x: float
   y: float
   z: float
-  
-  @property
-  def xyz(self):
-    return (self.x, self.y, self.z)
 
 @bunfoe
-class Vec3u16Rot(Vector):
+class Vec3u16Rot(Vector3):
   x: u16Rot
   y: u16Rot
   z: u16Rot
-  
-  @property
-  def xyz(self):
-    return (self.x, self.y, self.z)
 
 class Matrix(BUNFOE):
   pass
