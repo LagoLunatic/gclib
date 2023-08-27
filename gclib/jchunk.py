@@ -3,7 +3,9 @@ from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
 
-@bunfoe
+# Set eq=False because we don't want to consider chunks equal just because they have the same type
+# and size. (e.g. JPC textures are each their own TEX1 chunk.)
+@bunfoe(eq=False)
 class JChunk(BUNFOE):
   magic: MagicStr[4]
   size: u32
