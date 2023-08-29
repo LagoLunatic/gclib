@@ -68,8 +68,8 @@ class RARC(GCLibFile):
     
     self.nodes = []
     for node_index in range(self.num_nodes):
-      offset = self.node_list_offset + node_index*Node.ENTRY_SIZE
-      node = Node(self)
+      offset = self.node_list_offset + node_index*RARCNode.ENTRY_SIZE
+      node = RARCNode(self)
       node.read(offset)
       self.nodes.append(node)
     
@@ -95,7 +95,7 @@ class RARC(GCLibFile):
     self.instantiated_object_files = {}
   
   def add_root_directory(self):
-    root_node = Node(self)
+    root_node = RARCNode(self)
     root_node.type = "ROOT"
     root_node.name = "archive"
     self.nodes.append(root_node)
@@ -124,7 +124,7 @@ class RARC(GCLibFile):
       spaces_to_add = 4-len(node_type)
       node_type += " "*spaces_to_add
     
-    node = Node(self)
+    node = RARCNode(self)
     node.type = node_type
     node.name = dir_name
     
@@ -305,8 +305,8 @@ class RARC(GCLibFile):
     for node in self.nodes:
       node.node_offset = next_node_offset
       self.data.seek(node.node_offset)
-      self.data.write(b'\0'*Node.ENTRY_SIZE)
-      next_node_offset += Node.ENTRY_SIZE
+      self.data.write(b'\0'*RARCNode.ENTRY_SIZE)
+      next_node_offset += RARCNode.ENTRY_SIZE
     
     # Reorders the self.file_entries list and sets the first_file_index field for each node.
     self.regenerate_all_file_entries_list()
@@ -450,7 +450,7 @@ class RARC(GCLibFile):
       if curr_path == path:
         return node
   
-  def get_file_entry(self, file_name):
+  def get_file_entry(self, file_name) -> 'RARCFileEntry':
     for file_entry in self.file_entries:
       if file_entry.name == file_name:
         return file_entry
@@ -468,7 +468,7 @@ class RARC(GCLibFile):
     self.instantiated_object_files[file_name] = file_instance
     return file_instance
 
-class Node:
+class RARCNode:
   ENTRY_SIZE = 0x10
   
   def __init__(self, rarc):
