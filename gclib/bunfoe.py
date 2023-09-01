@@ -2,7 +2,7 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import MISSING, _EMPTY_METADATA
 from enum import Enum
-from typing import Any, BinaryIO, Sequence, Type
+from typing import BinaryIO, Type, TypeVar
 from types import GenericAlias
 import typing
 import types
@@ -15,6 +15,8 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
+
+T = TypeVar('T')
 
 class BUNFOE:
   """Binary-UNpacking Field-Owning Entity.
@@ -111,7 +113,7 @@ class BUNFOE:
     setattr(self, field.name, value)
     return offset
   
-  def read_list_field(self, field: Field, offset: int) -> tuple[Any, int]:
+  def read_list_field(self, field: Field, offset: int) -> tuple[list, int]:
     assert isinstance(field.length, int) and field.length > 0
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
@@ -135,7 +137,7 @@ class BUNFOE:
     setattr(self, field.name, value)
     return bit_offset
   
-  def read_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int) -> tuple[Any, int]:
+  def read_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int) -> tuple[list, int]:
     assert isinstance(field.length, int) and field.length > 0
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
@@ -149,7 +151,7 @@ class BUNFOE:
     
     return value, bit_offset
   
-  def read_bitfield_property_value(self, bitfield: Field, field_type: Type, bit_offset: int, bits: int) -> Any:
+  def read_bitfield_property_value(self, bitfield: Field, field_type: Type[T], bit_offset: int, bits: int) -> T:
     total_bits = self.get_byte_size(bitfield.type)*8
     assert 0 <= bit_offset < total_bits
     assert 1 <= bits <= total_bits
@@ -167,8 +169,7 @@ class BUNFOE:
     value = field_type(raw_value)
     return value
   
-  def read_value(self, field_type: Type, offset: int) -> Any:
-    # TODO: instead of Any use TypeVar here
+  def read_value(self, field_type: Type[T], offset: int) -> T:
     if field_type in fs.PRIMITIVE_TYPE_TO_READ_FUNC:
       read_func = fs.PRIMITIVE_TYPE_TO_READ_FUNC[field_type]
       return read_func(self.data, offset)
@@ -282,7 +283,7 @@ class BUNFOE:
     
     return bit_offset
   
-  def save_bitfield_property_value(self, bitfield: Field, field_type: Type, bit_offset: int, bits: int, value: Any):
+  def save_bitfield_property_value(self, bitfield: Field, field_type: Type[T], bit_offset: int, bits: int, value: T):
     total_bits = self.get_byte_size(bitfield.type)*8
     assert 0 <= bit_offset < total_bits
     assert 1 <= bits <= total_bits
@@ -296,8 +297,7 @@ class BUNFOE:
     bitfield_value |= (raw_value << bit_offset) & bit_mask
     setattr(self, bitfield.name, bitfield_value)
   
-  def save_value(self, field_type: Type, offset: int, value: Any) -> None:
-    # TODO: instead of Any use TypeVar here
+  def save_value(self, field_type: Type[T], offset: int, value: T) -> None:
     # TODO: assert that value is an instance of field_type?
     if field_type in fs.PRIMITIVE_TYPE_TO_WRITE_FUNC:
       write_func = fs.PRIMITIVE_TYPE_TO_WRITE_FUNC[field_type]
