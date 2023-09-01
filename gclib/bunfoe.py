@@ -48,7 +48,7 @@ class BUNFOE:
       # padding. Maybe in the future it could double check a DATA_SIZE/BYTE_SIZE constant.
       size = 0
       for subfield in fields(field_type):
-        if subfield.ignore:
+        if subfield.ignore or subfield.bits is not None:
           continue
         if isinstance(subfield.type, GenericAlias) and subfield.type.__origin__ == list:
           size += BUNFOE.get_list_field_byte_size(subfield)
@@ -71,8 +71,25 @@ class BUNFOE:
   #region Reading
   def read(self, offset: int) -> int:
     orig_offset = offset
+    bitfield = None
+    bit_offset = None
     for field in fields(self):
+      if bitfield is None:
+        assert field.bits is None, "Specified the bits argument when no bitfield was active."
+      else:
+        if field.bits is None:
+          # Reached the end of the current bitfield.
+          # This next field isn't part of the last bitfield we saw.
+          bitfield = None
+          bit_offset = None
+        else:
+          bit_offset = self.read_bitfield_property(bitfield, field, bit_offset)
+          continue
+      
       offset = self.read_field(field, offset)
+      if field.bitfield:
+        bitfield = field
+        bit_offset = 0
     
     assert offset >= orig_offset
     if hasattr(self, "DATA_SIZE"):
@@ -108,6 +125,48 @@ class BUNFOE:
     
     return value, offset
   
+  def read_bitfield_property(self, bitfield: Field, field: Field, bit_offset: int):
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      value, bit_offset = self.read_bitfield_property_list_field(bitfield, field, bit_offset)
+    else:
+      value = self.read_bitfield_property_value(bitfield, field.type, bit_offset, field.bits)
+      bit_offset += field.bits
+    
+    setattr(self, field.name, value)
+    return bit_offset
+  
+  def read_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int) -> tuple[Any, int]:
+    assert isinstance(field.length, int) and field.length > 0
+    type_args = typing.get_args(field.type)
+    assert len(type_args) == 1
+    arg_type = type_args[0]
+    
+    value = []
+    for i in range(field.length):
+      element = self.read_bitfield_property_value(bitfield, arg_type, bit_offset, field.bits)
+      bit_offset += field.bits
+      value.append(element)
+    
+    return value, bit_offset
+  
+  def read_bitfield_property_value(self, bitfield: Field, field_type: Type, bit_offset: int, bits: int) -> Any:
+    total_bits = self.get_byte_size(bitfield.type)*8
+    assert 0 <= bit_offset < total_bits
+    assert 1 <= bits <= total_bits
+    assert 1 <= bit_offset+bits <= total_bits
+    
+    bitfield_value = getattr(self, bitfield.name)
+    bit_mask = (1 << bits) - 1
+    raw_value = (bitfield_value >> bit_offset) & bit_mask
+    bit_offset += bits
+    
+    if issubclass(field_type, bool):
+      # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
+      if raw_value not in [0, 1]:
+        print(f"Boolean should be zero or one, but got value: {raw_value}")
+    value = field_type(raw_value)
+    return value
+  
   def read_value(self, field_type: Type, offset: int) -> Any:
     # TODO: instead of Any use TypeVar here
     if field_type in fs.PRIMITIVE_TYPE_TO_READ_FUNC:
@@ -141,13 +200,35 @@ class BUNFOE:
   #region Saving
   def save(self, offset: int) -> int:
     orig_offset = offset
+    bitfield = None
+    bit_offset = None
     for field in fields(self):
+      if field.bitfield:
+        # Don't save the bitfield as soon as we see it.
+        # We need to update its value with the values of each of its properties first.
+        bitfield = field
+        bit_offset = 0
+        continue
+      
+      if bitfield is None:
+        assert field.bits is None, "Specified the bits argument when no bitfield was active."
+      else:
+        if field.bits is None:
+          # Reached the end of the current bitfield.
+          # Save the bitfield itself now that it has its final value.
+          offset = self.save_field(bitfield, offset)
+          bitfield = None
+          bit_offset = None
+        else:
+          bit_offset = self.save_bitfield_property(bitfield, field, bit_offset)
+          continue
+      
       offset = self.save_field(field, offset)
     
     assert offset >= orig_offset
     if hasattr(self, "DATA_SIZE"):
-      size_read = offset - orig_offset
-      assert size_read == self.DATA_SIZE
+      size_saved = offset - orig_offset
+      assert size_saved == self.DATA_SIZE
     
     return offset
   
@@ -158,7 +239,6 @@ class BUNFOE:
     
     if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
       offset = self.save_list_field(field, offset, value)
-      
     else:
       self.save_value(field.type, offset, value)
       offset += self.get_byte_size(field.type)
@@ -177,6 +257,44 @@ class BUNFOE:
       offset += self.get_byte_size(arg_type)
     
     return offset
+  
+  def save_bitfield_property(self, bitfield: Field, field: Field, bit_offset: int):
+    value = getattr(self, field.name)
+    
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      bit_offset = self.save_bitfield_property_list_field(bitfield, field, bit_offset, value)
+    else:
+      self.save_bitfield_property_value(bitfield, field.type, bit_offset, field.bits, value)
+      bit_offset += field.bits
+    
+    return bit_offset
+  
+  def save_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int, value) -> int:
+    assert isinstance(field.length, int) and field.length > 0
+    assert len(value) == field.length
+    type_args = typing.get_args(field.type)
+    assert len(type_args) == 1
+    arg_type = type_args[0]
+    
+    for i in range(field.length):
+      self.save_bitfield_property_value(bitfield, arg_type, bit_offset, field.bits, value[i])
+      bit_offset += field.bits
+    
+    return bit_offset
+  
+  def save_bitfield_property_value(self, bitfield: Field, field_type: Type, bit_offset: int, bits: int, value: Any):
+    total_bits = self.get_byte_size(bitfield.type)*8
+    assert 0 <= bit_offset < total_bits
+    assert 1 <= bits <= total_bits
+    assert 1 <= bit_offset+bits <= total_bits
+    
+    bitfield_value = getattr(self, bitfield.name)
+    bit_mask = ((1 << bits) - 1) << bit_offset
+    bitfield_value &= ~bit_mask
+    
+    raw_value = int(value) # TODO: use field_type?
+    bitfield_value |= (raw_value << bit_offset) & bit_mask
+    setattr(self, bitfield.name, bitfield_value)
   
   def save_value(self, field_type: Type, offset: int, value: Any) -> None:
     # TODO: instead of Any use TypeVar here
@@ -273,11 +391,13 @@ class Field(dataclasses.Field):
                  # Custom.
                  'length',
                  'ignore',
+                 'bitfield',
+                 'bits',
                  'assert_default',
                  )
 
     def __init__(self, default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only, length, ignore, assert_default):
+                 metadata, kw_only, length, ignore, bitfield, bits, assert_default):
         self.name = None
         self.type = None
         self.default = default
@@ -295,6 +415,8 @@ class Field(dataclasses.Field):
         # Custom.
         self.length = length
         self.ignore = ignore
+        self.bitfield = bitfield
+        self.bits = bits
         self.assert_default = assert_default
 
     @dataclasses._recursive_repr
@@ -315,14 +437,18 @@ class Field(dataclasses.Field):
                 # Custom.
                 f'length={self.length!r},'
                 f'ignore={self.ignore!r},'
+                f'bitfield={self.bitfield!r},'
+                f'bits={self.bits!r},'
                 f'assert_default={self.assert_default!r},'
                 ')')
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
-          length=None, ignore=False, assert_default=False):
+          length=None, ignore=False, bitfield=False, bits=None, assert_default=False):
+  if bitfield and bits is not None:
+    raise ValueError('cannot specify both bitfield and bits')
   return Field(default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, length, ignore, assert_default)
+               metadata, kw_only, length, ignore, bitfield, bits, assert_default)
 
 def fields(class_or_instance) -> tuple[Field, ...]:
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):

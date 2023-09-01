@@ -26,7 +26,8 @@ class ZMode(BUNFOE):
 class ColorChannel(BUNFOE):
   lighting_enabled    : bool
   mat_color_src       : GX.ColorSrc
-  lit_mask            : u8 # Bitfield. Each bit is one light. TODO
+  lit_mask            : u8 = field(bitfield=True)
+  used_lights         : list[bool] = field(bits=1, length=8)
   diffuse_function    : GX.DiffuseFunction
   attenuation_function: GX.AttenuationFunction
   ambient_color_src   : GX.ColorSrc
@@ -109,7 +110,10 @@ class TexMatrix(BUNFOE):
   DATA_SIZE = 0x64
   
   projection   : TexMtxProjection
-  map_mode     : TexMtxMapMode # TODO actually a bitfield: &0x80=is_maya &0x3F=matrix_mode
+  bitfield_1   : u8            = field(bitfield=True)
+  map_mode     : TexMtxMapMode = field(bits=6)
+  unknown_1    : bool          = field(bits=1) # TODO padding? maybe should assert_default=0
+  is_maya      : bool          = field(bits=1)
   _padding_1   : u16 = 0xFFFF
   center       : Vec3float
   scale        : Vec2float
