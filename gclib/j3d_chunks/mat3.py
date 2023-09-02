@@ -4,7 +4,7 @@ from typing import Type, Any
 from enum import Enum
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
 from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16
 from gclib.jchunk import JChunk
@@ -17,31 +17,30 @@ class PixelEngineMode(u8, Enum):
 
 @bunfoe
 class ZMode(BUNFOE):
-  depth_test : bool
-  depth_func : GX.CompareType
-  depth_write: bool
-  _padding_1 : u8 = 0xFF
+  depth_test : bool           = True
+  depth_func : GX.CompareType = GX.CompareType.Less_Equal
+  depth_write: bool           = True
+  _padding_1 : u8             = 0xFF
 
 @bunfoe
 class ColorChannel(BUNFOE):
-  lighting_enabled    : bool
-  mat_color_src       : GX.ColorSrc
-  lit_mask            : u8 = field(bitfield=True)
-  used_lights         : list[bool] = field(bits=1, length=8)
-  diffuse_function    : GX.DiffuseFunction
-  attenuation_function: GX.AttenuationFunction
-  ambient_color_src   : GX.ColorSrc
-  _padding_1          : u16
+  lighting_enabled    : bool                   = True
+  mat_color_src       : GX.ColorSrc            = GX.ColorSrc.Register
+  lit_mask            : u8                     = field(bitfield=True, init=False)
+  used_lights         : list[bool]             = field(bits=1, length=8, default_factory=lambda: [True]*8)
+  diffuse_function    : GX.DiffuseFunction     = GX.DiffuseFunction.Clamp
+  attenuation_function: GX.AttenuationFunction = GX.AttenuationFunction.Spot
+  ambient_color_src   : GX.ColorSrc            = GX.ColorSrc.Register
+  _padding            : u16                    = 0xFFFF
 
 @bunfoe
 class AlphaCompare(BUNFOE):
-  comp0     : GX.CompareType
-  ref0      : u8
-  operation : GX.AlphaOp
-  comp1     : GX.CompareType
-  ref1      : u8
-  _padding_1: u8 = 0xFF
-  _padding_2: u16 = 0xFFFF
+  comp0    : GX.CompareType = GX.CompareType.Greater_Equal
+  ref0     : u8             = 128
+  operation: GX.AlphaOp     = GX.AlphaOp.AND
+  comp1    : GX.CompareType = GX.CompareType.Less_Equal
+  ref1     : u8             = 255
+  _padding : u24            = 0xFFFFFF
 
 @bunfoe
 class BlendMode(BUNFOE):
@@ -151,10 +150,9 @@ class FogInfo(BUNFOE):
 
 @bunfoe
 class NBTScale(BUNFOE):
-  enable    : bool
-  _padding_1: u8 = 0xFF
-  _padding_2: u16 = 0xFFFF
-  scale     : Vec3float
+  enable  : bool
+  _padding: u24 = 0xFFFFFF
+  scale   : Vec3float
 
 @bunfoe
 class Material(BUNFOE):
@@ -279,22 +277,21 @@ class Material(BUNFOE):
 
 @bunfoe
 class IndirectTevOrder(BUNFOE): 
-  tex_coord_id            : GX.TexCoordID
-  tex_map_id              : GX.TexMapID
-  _padding_1              : u16
+  tex_coord_id: GX.TexCoordID = GX.TexCoordID.TEXCOORD_NULL
+  tex_map_id  : GX.TexMapID   = GX.TexMapID.TEXMAP_NULL
+  _padding_1  : u16           = 0xFFFF
 
 @bunfoe
 class IndirectTexMatrix(BUNFOE):
-  matrix    : Matrix2x3
-  exponent  : u8
-  _padding_1: u8 = 0xFF
-  _padding_2: u16 = 0xFFFF
+  matrix  : Matrix2x3  = field(default_factory=Matrix2x3)
+  exponent: u8         = 1
+  _padding: u24        = 0xFFFFFF
 
 @bunfoe
 class IndirectTexScale(BUNFOE):
-  scale_s   : GX.IndirectTexScale
-  scale_t   : GX.IndirectTexScale
-  _padding_1: u16
+  scale_s : GX.IndirectTexScale = GX.IndirectTexScale._1
+  scale_t : GX.IndirectTexScale = GX.IndirectTexScale._1
+  _padding: u16                 = 0xFFFF
 
 @bunfoe
 class IndirectTevStage(BUNFOE):
@@ -307,8 +304,7 @@ class IndirectTevStage(BUNFOE):
   add_prev        : bool
   utc_lod         : bool
   alpha_sel       : GX.IndTexAlphaSel
-  _padding_1      : u8
-  _padding_2      : u16
+  _padding        : u24 = 0xFFFFFF
 
 @bunfoe
 class TextureIndirect(BUNFOE):

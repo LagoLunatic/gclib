@@ -9,7 +9,7 @@ import types
 import functools
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 # TODO: implement read_only attribute (for stuff like magic strings)

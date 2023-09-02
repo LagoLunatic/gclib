@@ -1,9 +1,9 @@
 from enum import Enum
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.jchunk import JChunk
-from gclib.bunfoe import bunfoe, BUNFOE, Field
+from gclib.bunfoe import bunfoe, field, BUNFOE
 
 class INF1NodeType(u16, Enum):
   FINISH      = 0x00

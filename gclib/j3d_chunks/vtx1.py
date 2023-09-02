@@ -1,9 +1,9 @@
 from enum import IntEnum
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.jchunk import JChunk
-from gclib.bunfoe import bunfoe, BUNFOE, Field
+from gclib.bunfoe import bunfoe, field, BUNFOE
 import gclib.gx_enums as GX
 
 class VTX1DataOffsetIndex(IntEnum):
@@ -57,12 +57,11 @@ GXComponentType_TO_COLOR_COMPONENT_BYTE_SIZE = {
 class VertexFormat(BUNFOE):
   DATA_SIZE = 0x10
   
-  attribute_type: GX.Attr
-  component_count_type: GX.ComponentCount
-  component_type: GX.ComponentType
-  component_shift: u8
-  _padding_1: u8 = 0xFF
-  _padding_2: u16 = 0xFFFF
+  attribute_type      : GX.Attr           = GX.Attr.NULL
+  component_count_type: GX.ComponentCount = GX.ComponentCount.Position_XYZ
+  component_type      : GX.ComponentType  = GX.ComponentType.Unsigned8
+  component_shift     : u8                = 0
+  _padding            : u24               = 0xFFFFFF
   
   @property
   def data_offset_index(self):

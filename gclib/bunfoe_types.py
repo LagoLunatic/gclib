@@ -1,6 +1,6 @@
 
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import bunfoe, BUNFOE, field
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import bunfoe, field, BUNFOE
 
 class Vector(BUNFOE):
   pass
@@ -25,35 +25,35 @@ class Vector3(Vector):
 
 @bunfoe
 class Vec2float(Vector2):
-  x: float
-  y: float
+  x: float = 0.0
+  y: float = 0.0
 
 @bunfoe
 class Vec3float(Vector3):
-  x: float
-  y: float
-  z: float
+  x: float = 0.0
+  y: float = 0.0
+  z: float = 0.0
 
 @bunfoe
 class Vec3u16Rot(Vector3):
-  x: u16Rot
-  y: u16Rot
-  z: u16Rot
+  x: u16Rot = 0
+  y: u16Rot = 0
+  z: u16Rot = 0
 
 class Matrix(BUNFOE):
   pass
 
 @bunfoe
 class Matrix2x3(Matrix):
-  r0: list[float] =  field(length=3)
-  r1: list[float] =  field(length=3)
+  r0: list[float] =  field(length=3, default_factory=lambda: [0.5, 0.0, 0.0])
+  r1: list[float] =  field(length=3, default_factory=lambda: [0.0, 0.5, 0.0])
 
 @bunfoe
 class Matrix4x4(Matrix):
-  r0: list[float] = field(length=4)
-  r1: list[float] = field(length=4)
-  r2: list[float] = field(length=4)
-  r3: list[float] = field(length=4)
+  r0: list[float] = field(length=4, default_factory=lambda: [1.0, 0.0, 0.0, 0.0])
+  r1: list[float] = field(length=4, default_factory=lambda: [0.0, 1.0, 0.0, 0.0])
+  r2: list[float] = field(length=4, default_factory=lambda: [0.0, 0.0, 1.0, 0.0])
+  r3: list[float] = field(length=4, default_factory=lambda: [0.0, 0.0, 0.0, 1.0])
 
 class RGB(BUNFOE):
   @property
@@ -75,14 +75,14 @@ class RGBA(RGB):
 
 @bunfoe
 class RGBAu8(RGBA):
-  r: u8
-  g: u8
-  b: u8
-  a: u8
+  r: u8 = 0
+  g: u8 = 0
+  b: u8 = 0
+  a: u8 = 0
 
 @bunfoe
 class RGBAs16(RGBA):
-  r: s16
-  g: s16
-  b: s16
-  a: s16
+  r: s16 = 0
+  g: s16 = 0
+  b: s16 = 0
+  a: s16 = 0

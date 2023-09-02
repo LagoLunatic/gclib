@@ -4,8 +4,8 @@ from PIL import Image
 import struct
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import bunfoe, field, BUNFOE
 from io import BytesIO
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk

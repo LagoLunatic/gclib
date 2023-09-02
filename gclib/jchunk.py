@@ -1,7 +1,7 @@
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import bunfoe, field, BUNFOE
 
 # Set eq=False because we don't want to consider chunks equal just because they have the same type
 # and size. (e.g. JPC textures are each their own TEX1 chunk.)
@@ -12,7 +12,6 @@ class JChunk(BUNFOE):
   
   def __init__(self, data):
     super().__init__(data)
-    self.data = data
   
   def read(self, offset):
     super().read(offset)
