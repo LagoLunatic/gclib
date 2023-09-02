@@ -167,7 +167,7 @@ def write_u16(data: BinaryIO, offset: int, new_value):
 
 def write_u24(data: BinaryIO, offset: int, new_value):
   new_value = struct.pack(">I", new_value)
-  assert new_value[0] == b'\0'
+  assert new_value[0] == 0
   data.seek(offset)
   data.write(new_value[1:])
 
