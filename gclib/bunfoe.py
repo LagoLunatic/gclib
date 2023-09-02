@@ -18,6 +18,140 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 
 T = TypeVar('T')
 
+
+class Field(dataclasses.Field):
+    __slots__ = ('name',
+                 'type',
+                 'default',
+                 'default_factory',
+                 'repr',
+                 'hash',
+                 'init',
+                 'compare',
+                 'metadata',
+                 'kw_only',
+                 '_field_type',  # Private: not to be used by user code.
+                 
+                 # Custom.
+                 'length',
+                 'ignore',
+                 'bitfield',
+                 'bits',
+                 'assert_default',
+                 )
+
+    def __init__(self, default, default_factory, init, repr, hash, compare,
+                 metadata, kw_only, length, ignore, bitfield, bits, assert_default):
+        self.name = None
+        self.type = None
+        self.default = default
+        self.default_factory = default_factory
+        self.init = init
+        self.repr = repr
+        self.hash = hash
+        self.compare = compare
+        self.metadata = (_EMPTY_METADATA
+                         if metadata is None else
+                         types.MappingProxyType(metadata))
+        self.kw_only = kw_only
+        self._field_type = None
+        
+        # Custom.
+        self.length = length
+        self.ignore = ignore
+        self.bitfield = bitfield
+        self.bits = bits
+        self.assert_default = assert_default
+
+    @dataclasses._recursive_repr
+    def __repr__(self):
+        return ('Field('
+                f'name={self.name!r},'
+                f'type={self.type!r},'
+                f'default={self.default!r},'
+                f'default_factory={self.default_factory!r},'
+                f'init={self.init!r},'
+                f'repr={self.repr!r},'
+                f'hash={self.hash!r},'
+                f'compare={self.compare!r},'
+                f'metadata={self.metadata!r},'
+                f'kw_only={self.kw_only!r},'
+                f'_field_type={self._field_type},'
+                
+                # Custom.
+                f'length={self.length!r},'
+                f'ignore={self.ignore!r},'
+                f'bitfield={self.bitfield!r},'
+                f'bits={self.bits!r},'
+                f'assert_default={self.assert_default!r},'
+                ')')
+
+
+def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
+          hash=None, compare=True, metadata=None, kw_only=MISSING,
+          length=None, ignore=False, bitfield=False, bits=None, assert_default=False):
+  if bitfield and bits is not None:
+    raise ValueError('cannot specify both bitfield and bits')
+  return Field(default, default_factory, init, repr, hash, compare,
+               metadata, kw_only, length, ignore, bitfield, bits, assert_default)
+
+def fields(class_or_instance) -> tuple[Field, ...]:
+  if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
+    raise TypeError(f'{class_or_instance} does not inherit from BUNFOE') from None
+  if not hasattr(class_or_instance, dataclasses._FIELDS):
+    raise TypeError(f'{class_or_instance} does not use the @bunfoe decorator') from None
+  return dataclasses.fields(class_or_instance)
+
+
+def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
+                   match_args, kw_only, slots, weakref_slot):
+  
+  # if BUNFOE not in cls.__bases__:
+  #   # Modify the class to inherit from BUNFOE.
+  #   if cls.__bases__ == (object,):
+  #     cls_bases = (BUNFOE,)
+  #   else:
+  #     cls_bases = cls.__bases__ + (BUNFOE,)
+  #   cls_dict = dict(cls.__dict__)
+  #   qualname = getattr(cls, '__qualname__', None)
+  #   cls = type(cls.__name__, cls_bases, cls_dict)
+  #   if qualname is not None:
+  #       cls.__qualname__ = qualname
+  
+  cls_annotations = cls.__dict__.get('__annotations__', {})
+  for field_name, field_type in cls_annotations.items():
+    default = getattr(cls, field_name, MISSING)
+    if not isinstance(default, Field):
+      setattr(cls, field_name, field(default=default))
+  
+  cls = dataclasses._process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
+                                   match_args, kw_only, slots, weakref_slot)
+  
+  assert issubclass(cls, BUNFOE)
+  
+  return cls
+
+def bunfoe(cls=None, /, *,
+           # Dataclass arguments. Some defaults are changed.
+           init=False, repr=True, eq=True, order=False,
+           unsafe_hash=False, frozen=False, match_args=True,
+           kw_only=False, slots=False, weakref_slot=False,
+           ):
+  def wrap(cls):
+    return _process_class(cls,
+      init=init, repr=repr, eq=eq, order=order,
+      unsafe_hash=unsafe_hash, frozen=frozen, match_args=match_args,
+      kw_only=kw_only, slots=slots, weakref_slot=weakref_slot
+    )
+
+  if cls is None:
+    # Called as @bunfoe() with parentheses.
+    return wrap
+
+  # Called as @bunfoe without parentheses.
+  return wrap(cls)
+
+
 class BUNFOE:
   """Binary-UNpacking Field-Owning Entity.
   
@@ -329,135 +463,3 @@ class BUNFOE:
     else:
       raise NotImplementedError
   #endregion
-
-
-def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
-                   match_args, kw_only, slots, weakref_slot):
-  
-  # if BUNFOE not in cls.__bases__:
-  #   # Modify the class to inherit from BUNFOE.
-  #   if cls.__bases__ == (object,):
-  #     cls_bases = (BUNFOE,)
-  #   else:
-  #     cls_bases = cls.__bases__ + (BUNFOE,)
-  #   cls_dict = dict(cls.__dict__)
-  #   qualname = getattr(cls, '__qualname__', None)
-  #   cls = type(cls.__name__, cls_bases, cls_dict)
-  #   if qualname is not None:
-  #       cls.__qualname__ = qualname
-  
-  cls_annotations = cls.__dict__.get('__annotations__', {})
-  for field_name, field_type in cls_annotations.items():
-    default = getattr(cls, field_name, MISSING)
-    if not isinstance(default, Field):
-      setattr(cls, field_name, field(default=default))
-  
-  cls = dataclasses._process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
-                                   match_args, kw_only, slots, weakref_slot)
-  
-  assert issubclass(cls, BUNFOE)
-  
-  return cls
-
-def bunfoe(cls=None, /, *,
-           # Dataclass arguments. Some defaults are changed.
-           init=False, repr=True, eq=True, order=False,
-           unsafe_hash=False, frozen=False, match_args=True,
-           kw_only=False, slots=False, weakref_slot=False,
-           ):
-  def wrap(cls):
-    return _process_class(cls,
-      init=init, repr=repr, eq=eq, order=order,
-      unsafe_hash=unsafe_hash, frozen=frozen, match_args=match_args,
-      kw_only=kw_only, slots=slots, weakref_slot=weakref_slot
-    )
-
-  if cls is None:
-    # Called as @bunfoe() with parentheses.
-    return wrap
-
-  # Called as @bunfoe without parentheses.
-  return wrap(cls)
-
-
-class Field(dataclasses.Field):
-    __slots__ = ('name',
-                 'type',
-                 'default',
-                 'default_factory',
-                 'repr',
-                 'hash',
-                 'init',
-                 'compare',
-                 'metadata',
-                 'kw_only',
-                 '_field_type',  # Private: not to be used by user code.
-                 
-                 # Custom.
-                 'length',
-                 'ignore',
-                 'bitfield',
-                 'bits',
-                 'assert_default',
-                 )
-
-    def __init__(self, default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only, length, ignore, bitfield, bits, assert_default):
-        self.name = None
-        self.type = None
-        self.default = default
-        self.default_factory = default_factory
-        self.init = init
-        self.repr = repr
-        self.hash = hash
-        self.compare = compare
-        self.metadata = (_EMPTY_METADATA
-                         if metadata is None else
-                         types.MappingProxyType(metadata))
-        self.kw_only = kw_only
-        self._field_type = None
-        
-        # Custom.
-        self.length = length
-        self.ignore = ignore
-        self.bitfield = bitfield
-        self.bits = bits
-        self.assert_default = assert_default
-
-    @dataclasses._recursive_repr
-    def __repr__(self):
-        return ('Field('
-                f'name={self.name!r},'
-                f'type={self.type!r},'
-                f'default={self.default!r},'
-                f'default_factory={self.default_factory!r},'
-                f'init={self.init!r},'
-                f'repr={self.repr!r},'
-                f'hash={self.hash!r},'
-                f'compare={self.compare!r},'
-                f'metadata={self.metadata!r},'
-                f'kw_only={self.kw_only!r},'
-                f'_field_type={self._field_type},'
-                
-                # Custom.
-                f'length={self.length!r},'
-                f'ignore={self.ignore!r},'
-                f'bitfield={self.bitfield!r},'
-                f'bits={self.bits!r},'
-                f'assert_default={self.assert_default!r},'
-                ')')
-
-def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
-          hash=None, compare=True, metadata=None, kw_only=MISSING,
-          length=None, ignore=False, bitfield=False, bits=None, assert_default=False):
-  if bitfield and bits is not None:
-    raise ValueError('cannot specify both bitfield and bits')
-  return Field(default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, length, ignore, bitfield, bits, assert_default)
-
-def fields(class_or_instance) -> tuple[Field, ...]:
-  if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
-    raise TypeError(f'{class_or_instance} does not inherit from BUNFOE') from None
-  if not hasattr(class_or_instance, dataclasses._FIELDS):
-    raise TypeError(f'{class_or_instance} does not use the @bunfoe decorator') from None
-  return dataclasses.fields(class_or_instance)
