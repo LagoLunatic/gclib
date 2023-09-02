@@ -226,6 +226,11 @@ class BUNFOE:
       
       offset = self.save_field(field, offset)
     
+    if bitfield is not None:
+      # Bitfield continued until the end of this class so it didn't get saved in the loop.
+      # Save it now instead.
+      offset = self.save_field(bitfield, offset)
+    
     assert offset >= orig_offset
     if hasattr(self, "DATA_SIZE"):
       size_saved = offset - orig_offset
