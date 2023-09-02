@@ -129,6 +129,10 @@ def read_u16(data: BinaryIO, offset: int) -> int:
   data.seek(offset)
   return struct.unpack(">H", data.read(2))[0]
 
+def read_u24(data: BinaryIO, offset: int) -> int:
+  data.seek(offset)
+  return struct.unpack(">I", b'\0' + data.read(3))[0]
+
 def read_u32(data: BinaryIO, offset: int) -> int:
   data.seek(offset)
   return struct.unpack(">I", data.read(4))[0]
@@ -160,6 +164,12 @@ def write_u16(data: BinaryIO, offset: int, new_value):
   new_value = struct.pack(">H", new_value)
   data.seek(offset)
   data.write(new_value)
+
+def write_u24(data: BinaryIO, offset: int, new_value):
+  new_value = struct.pack(">I", new_value)
+  assert new_value[0] == b'\0'
+  data.seek(offset)
+  data.write(new_value[1:])
 
 def write_u32(data: BinaryIO, offset: int, new_value):
   new_value = struct.pack(">I", new_value)
@@ -214,6 +224,9 @@ def align_data_and_pad_offset(data: BinaryIO, offset: int, size: int, padding_by
 class u32(int):
   pass
 
+class u24(int):
+  pass
+
 class u16(int):
   pass
 
@@ -242,6 +255,7 @@ class MagicStr(str):
 
 PRIMITIVE_TYPE_TO_BYTE_SIZE = {
   u32  : 4,
+  u24  : 3,
   u16  : 2,
   u8   : 1,
   s32  : 4,
@@ -252,6 +266,7 @@ PRIMITIVE_TYPE_TO_BYTE_SIZE = {
 
 PRIMITIVE_TYPE_TO_READ_FUNC = {
   u32  : read_u32,
+  u24  : read_u24,
   u16  : read_u16,
   u8   : read_u8,
   s32  : read_s32,
@@ -262,6 +277,7 @@ PRIMITIVE_TYPE_TO_READ_FUNC = {
 
 PRIMITIVE_TYPE_TO_WRITE_FUNC = {
   u32  : write_u32,
+  u24  : write_u24,
   u16  : write_u16,
   u8   : write_u8,
   s32  : write_s32,
@@ -272,6 +288,7 @@ PRIMITIVE_TYPE_TO_WRITE_FUNC = {
 
 PRIMITIVE_TYPE_IS_SIGNED = {
   u32  : False,
+  u24  : False,
   u16  : False,
   u8   : False,
   s32  : True,
