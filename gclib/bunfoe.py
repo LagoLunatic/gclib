@@ -1,8 +1,8 @@
 from __future__ import annotations
 import dataclasses
-from dataclasses import MISSING, _EMPTY_METADATA
+from dataclasses import MISSING
 from enum import Enum
-from typing import BinaryIO, Type, TypeVar
+from typing import BinaryIO, ClassVar, Type, TypeVar
 from types import GenericAlias
 import typing
 import types
@@ -13,6 +13,7 @@ from gclib.fs_helpers import u32, u16, u8, s32, s16, s8, u16Rot, FixedStr, Magic
 
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 # TODO: implement read_only attribute (for stuff like magic strings)
+# TODO: implement variable-length arrays (length is defined by another field instead of a constant)
 # TODO: implement hidden attribute (for e.g. array length fields)
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
 
@@ -20,71 +21,58 @@ T = TypeVar('T')
 
 
 class Field(dataclasses.Field):
-    __slots__ = ('name',
-                 'type',
-                 'default',
-                 'default_factory',
-                 'repr',
-                 'hash',
-                 'init',
-                 'compare',
-                 'metadata',
-                 'kw_only',
-                 '_field_type',  # Private: not to be used by user code.
-                 
-                 # Custom.
-                 'length',
-                 'ignore',
-                 'bitfield',
-                 'bits',
-                 'assert_default',
-                 )
+  __slots__ = ('name', 'type', 'default', 'default_factory', 'repr',
+               'hash', 'init', 'compare', 'metadata', 'kw_only',
+               '_field_type',  # Private: not to be used by user code.
+               # Custom.
+               'length', 'ignore', 'bitfield', 'bits', 'assert_default',
+               )
 
-    def __init__(self, default, default_factory, init, repr, hash, compare,
-                 metadata, kw_only, length, ignore, bitfield, bits, assert_default):
-        self.name = None
-        self.type = None
-        self.default = default
-        self.default_factory = default_factory
-        self.init = init
-        self.repr = repr
-        self.hash = hash
-        self.compare = compare
-        self.metadata = (_EMPTY_METADATA
-                         if metadata is None else
-                         types.MappingProxyType(metadata))
-        self.kw_only = kw_only
-        self._field_type = None
-        
-        # Custom.
-        self.length = length
-        self.ignore = ignore
-        self.bitfield = bitfield
-        self.bits = bits
-        self.assert_default = assert_default
+  def __init__(self, default, default_factory, init, repr, hash, compare,
+               metadata, kw_only, length, ignore, bitfield, bits, assert_default):
+    self.name = None
+    self.type = None
+    self.default = default
+    self.default_factory = default_factory
+    self.init = init
+    self.repr = repr
+    self.hash = hash
+    self.compare = compare
+    self.metadata = (dataclasses._EMPTY_METADATA
+                      if metadata is None else
+                      types.MappingProxyType(metadata))
+    self.kw_only = kw_only
+    self._field_type = None
+    
+    # Custom.
+    self.length = length
+    self.ignore = ignore
+    self.bitfield = bitfield
+    self.bits = bits
+    self.assert_default = assert_default
 
-    @dataclasses._recursive_repr
-    def __repr__(self):
-        return ('Field('
-                f'name={self.name!r},'
-                f'type={self.type!r},'
-                f'default={self.default!r},'
-                f'default_factory={self.default_factory!r},'
-                f'init={self.init!r},'
-                f'repr={self.repr!r},'
-                f'hash={self.hash!r},'
-                f'compare={self.compare!r},'
-                f'metadata={self.metadata!r},'
-                f'kw_only={self.kw_only!r},'
-                f'_field_type={self._field_type},'
-                
-                # Custom.
-                f'length={self.length!r},'
-                f'ignore={self.ignore!r},'
-                f'bitfield={self.bitfield!r},'
-                f'bits={self.bits!r},'
-                f'assert_default={self.assert_default!r},'
-                ')')
+  @dataclasses._recursive_repr
+  def __repr__(self):
+    return ('Field('
+            f'name={self.name!r},'
+            f'type={self.type!r},'
+            f'default={self.default!r},'
+            f'default_factory={self.default_factory!r},'
+            f'init={self.init!r},'
+            f'repr={self.repr!r},'
+            f'hash={self.hash!r},'
+            f'compare={self.compare!r},'
+            f'metadata={self.metadata!r},'
+            f'kw_only={self.kw_only!r},'
+            f'_field_type={self._field_type},'
+            
+            # Custom.
+            f'length={self.length!r},'
+            f'ignore={self.ignore!r},'
+            f'bitfield={self.bitfield!r},'
+            f'bits={self.bits!r},'
+            f'assert_default={self.assert_default!r},'
+            ')')
 
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
@@ -158,6 +146,7 @@ class BUNFOE:
   This is a wrapper around dataclasses that implements automatic reading and writing of binary
   struct data."""
   
+  DATA_SIZE: ClassVar = None
   # TODO: automatically calculate BYTE_SIZE based on the size of all the fields combined?
   
   def __init__(self, data: BinaryIO):
@@ -228,7 +217,7 @@ class BUNFOE:
         bit_offset = 0
     
     assert offset >= orig_offset
-    if hasattr(self, "DATA_SIZE"):
+    if self.DATA_SIZE is not None:
       size_read = offset - orig_offset
       assert size_read == self.DATA_SIZE
     
@@ -366,7 +355,7 @@ class BUNFOE:
       offset = self.save_field(bitfield, offset)
     
     assert offset >= orig_offset
-    if hasattr(self, "DATA_SIZE"):
+    if self.DATA_SIZE is not None:
       size_saved = offset - orig_offset
       assert size_saved == self.DATA_SIZE
     
