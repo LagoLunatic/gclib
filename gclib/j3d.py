@@ -3,6 +3,17 @@ from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk
 from gclib.j3d_chunks import CHUNK_TYPES
+from gclib.j3d_chunks.inf1 import INF1
+from gclib.j3d_chunks.vtx1 import VTX1
+# from gclib.j3d_chunks.evp1 import EVP1
+# from gclib.j3d_chunks.drw1 import DRW1
+from gclib.j3d_chunks.jnt1 import JNT1
+from gclib.j3d_chunks.shp1 import SHP1
+from gclib.j3d_chunks.mat3 import MAT3
+from gclib.j3d_chunks.mdl3 import MDL3
+from gclib.j3d_chunks.tex1 import TEX1
+from gclib.j3d_chunks.trk1 import TRK1
+from gclib.j3d_chunks.ttk1 import TTK1
 
 class J3D(GCLibFile):
   KNOWN_MAGICS = None
@@ -91,10 +102,21 @@ class J3D(GCLibFile):
 class BMD(J3D):
   KNOWN_MAGICS = ["J3D2"]
   KNOWN_FILE_TYPES = ["bmd2", "bmd3"]
+  
+  inf1: INF1
+  vtx1: VTX1
+  # evp1: EVP1
+  # drw1: DRW1
+  jnt1: JNT1
+  shp1: SHP1
+  mat3: MAT3
+  tex1: TEX1
 
 class BDL(BMD):
   KNOWN_MAGICS = ["J3D2"]
   KNOWN_FILE_TYPES = ["bdl4"]
+  
+  mdl3: MDL3
 
 class BMT(J3D):
   KNOWN_MAGICS = ["J3D2"]
@@ -103,7 +125,11 @@ class BMT(J3D):
 class BRK(J3D):
   KNOWN_MAGICS = ["J3D1"]
   KNOWN_FILE_TYPES = ["brk1"]
+  
+  trk1: TRK1
 
 class BTK(J3D):
   KNOWN_MAGICS = ["J3D1"]
   KNOWN_FILE_TYPES = ["btk1"]
+  
+  ttk1: TTK1
