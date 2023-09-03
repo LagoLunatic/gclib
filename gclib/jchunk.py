@@ -40,6 +40,9 @@ class JChunk(BUNFOE):
     return fs.PADDING_BYTES
   
   def read_string_table(self, string_table_offset):
+    if string_table_offset == 0:
+      return None
+    
     num_strings = fs.read_u16(self.data, string_table_offset+0x00)
     #padding = fs.read_u16(self.data, string_table_offset+0x02)
     #assert padding == 0xFFFF

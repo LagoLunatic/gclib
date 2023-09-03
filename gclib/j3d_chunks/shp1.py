@@ -37,6 +37,7 @@ class SHP1(JChunk):
     self.primitive_data_offset = fs.read_u32(self.data, 0x20)
     self.mtx_group_table_offset = fs.read_u32(self.data, 0x28)
     
+    self.shape_names = self.read_string_table(self.name_table_offset)
     self.shapes = []
     shape_offset = self.shape_data_offset
     for shape_index in range(self.shape_count):
