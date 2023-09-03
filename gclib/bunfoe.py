@@ -1,12 +1,12 @@
-from __future__ import annotations
 import dataclasses
-from dataclasses import MISSING
+from dataclasses import MISSING, InitVar
 from enum import Enum
-from typing import BinaryIO, ClassVar, Type, TypeVar
+from typing import BinaryIO, ClassVar, Self, Type, TypeVar
 from types import GenericAlias
 import typing
 import types
 import functools
+from io import BytesIO
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
@@ -18,6 +18,12 @@ from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, 
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
 
 T = TypeVar('T')
+
+# A sentinel object to detect if a field with no default value hasn't been read yet.
+# Use a class to give it a better repr.
+class _UNREAD_TYPE:
+  pass
+UNREAD = _UNREAD_TYPE()
 
 
 class Field(dataclasses.Field):
@@ -78,6 +84,13 @@ class Field(dataclasses.Field):
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
           length=None, ignore=False, bitfield=False, bits=None, assert_default=False):
+  if default is MISSING and default_factory is MISSING:
+    # If no default was specified for this field, we don't want to make it a required argument to
+    # __init__ when instantiating the class, as that would interfere with creating a blank instance
+    # with no arguments, which is done immediately prior to calling read(). So instead, we set the
+    # default to a special object we call UNREAD, which acts as a sentinel that this instance hasn't
+    # had its values properly unpacked yet.
+    default = UNREAD
   if bitfield and bits is not None:
     raise ValueError('cannot specify both bitfield and bits')
   return Field(default, default_factory, init, repr, hash, compare,
@@ -93,37 +106,32 @@ def fields(class_or_instance) -> tuple[Field, ...]:
 
 def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                    match_args, kw_only, slots, weakref_slot):
-  
-  # if BUNFOE not in cls.__bases__:
-  #   # Modify the class to inherit from BUNFOE.
-  #   if cls.__bases__ == (object,):
-  #     cls_bases = (BUNFOE,)
-  #   else:
-  #     cls_bases = cls.__bases__ + (BUNFOE,)
-  #   cls_dict = dict(cls.__dict__)
-  #   qualname = getattr(cls, '__qualname__', None)
-  #   cls = type(cls.__name__, cls_bases, cls_dict)
-  #   if qualname is not None:
-  #       cls.__qualname__ = qualname
-  
   cls_annotations = cls.__dict__.get('__annotations__', {})
   for field_name, field_type in cls_annotations.items():
     default = getattr(cls, field_name, MISSING)
     if not isinstance(default, Field):
+      if isinstance(default, dataclasses.Field):
+        raise ValueError("Used a dataclass field instead of a BUNFOE field")
       setattr(cls, field_name, field(default=default))
   
   cls = dataclasses._process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
                                    match_args, kw_only, slots, weakref_slot)
   
-  assert issubclass(cls, BUNFOE)
+  try:
+    base_class = BUNFOE # @IgnoreException
+    assert issubclass(cls, base_class)
+  except NameError:
+    # BUNFOE isn't defined yet as we're still in the middle of creating that class.
+    assert cls.__name__ == "BUNFOE"
   
   return cls
 
 def bunfoe(cls=None, /, *,
-           # Dataclass arguments. Some defaults are changed.
-           init=False, repr=True, eq=True, order=False,
+           # Dataclass arguments. Most defaults are left the same, but kw_only is changed from False
+           # to True in order to make normal fields keyword arguments by default.
+           init=True, repr=True, eq=True, order=False,
            unsafe_hash=False, frozen=False, match_args=True,
-           kw_only=False, slots=False, weakref_slot=False,
+           kw_only=True, slots=False, weakref_slot=False,
            ):
   def wrap(cls):
     return _process_class(cls,
@@ -140,17 +148,28 @@ def bunfoe(cls=None, /, *,
   return wrap(cls)
 
 
+@bunfoe
 class BUNFOE:
   """Binary-UNpacking Field-Owning Entity.
   
   This is a wrapper around dataclasses that implements automatic reading and writing of binary
   struct data."""
   
+  # data is the binary data the instance will be unpacked from upon calling read().
+  # If not passed upon instantiation, it will default to a new blank BytesIO.
+  data: InitVar[BinaryIO] = field(default=None, kw_only=False)
+  
   DATA_SIZE: ClassVar = None
   # TODO: automatically calculate BYTE_SIZE based on the size of all the fields combined?
   
-  def __init__(self, data: BinaryIO):
-    self.data = data
+  def __post_init__(self, data: BinaryIO | None):
+    if data is None:
+      self.data = BytesIO()
+    else:
+      self.data = data
+  
+  def copy(self, /, **changes) -> Self:
+    return dataclasses.replace(self, **changes)
   
   @staticmethod
   @functools.cache
@@ -167,7 +186,7 @@ class BUNFOE:
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           return BUNFOE.get_byte_size(base_class)
-      raise Exception(f"Enum {field_type} must inherit from a primitive int subclass.")
+      raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       # NOTE: This currently relies on the class defining all fields, including any trailing
       # padding. Maybe in the future it could double check a DATA_SIZE/BYTE_SIZE constant.
@@ -312,7 +331,7 @@ class BUNFOE:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           raw_value = self.read_value(base_class, offset)
           return field_type(raw_value)
-      raise Exception(f"Enum {field_type} must inherit from a primitive int subclass.")
+      raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       value = field_type(self.data)
       value.read(offset)
@@ -446,7 +465,7 @@ class BUNFOE:
           raw_value = value.value
           self.save_value(base_class, offset, raw_value)
           return
-      raise Exception(f"Enum {field_type} must inherit from a primitive int subclass.")
+      raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       value.save(offset)
     else:
