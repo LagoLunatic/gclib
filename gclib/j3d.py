@@ -5,6 +5,9 @@ from gclib.jchunk import JChunk
 from gclib.j3d_chunks import CHUNK_TYPES
 
 class J3D(GCLibFile):
+  KNOWN_MAGICS = None
+  KNOWN_FILE_TYPES = None
+  
   def __init__(self, file_entry_or_data = None):
     super().__init__(file_entry_or_data)
     
@@ -15,7 +18,11 @@ class J3D(GCLibFile):
     
     self.magic = fs.read_str(data, 0, 4)
     assert self.magic.startswith("J3D"), f"Unknown J3D magic: {self.magic!r}"
+    if self.KNOWN_MAGICS is not None:
+      assert self.magic in self.KNOWN_MAGICS, f"Unknown {type(self).__name__} magic: {self.magic!r}"
     self.file_type = fs.read_str(data, 4, 4)
+    if self.KNOWN_FILE_TYPES is not None:
+      assert self.file_type in self.KNOWN_FILE_TYPES, f"Unknown {type(self).__name__} file type: {self.file_type!r}"
     self.length = fs.read_u32(data, 8)
     self.num_chunks = fs.read_u32(data, 0x0C)
     
@@ -81,37 +88,22 @@ class J3D(GCLibFile):
     fs.write_u32(data, 0xC, self.num_chunks)
     fs.write_u32(data, 0x1C, self.bck_sound_data_offset)
 
-class BDL(J3D):
-  def __init__(self, file_entry):
-    super().__init__(file_entry)
-    
-    assert self.magic == "J3D2"
-    assert self.file_type == "bdl4"
-
 class BMD(J3D):
-  def __init__(self, file_entry):
-    super().__init__(file_entry)
-    
-    assert self.magic == "J3D2"
-    assert self.file_type == "bmd3" or self.file_type == "bmd2"
+  KNOWN_MAGICS = ["J3D2"]
+  KNOWN_FILE_TYPES = ["bmd2", "bmd3"]
+
+class BDL(BMD):
+  KNOWN_MAGICS = ["J3D2"]
+  KNOWN_FILE_TYPES = ["bdl4"]
 
 class BMT(J3D):
-  def __init__(self, file_entry):
-    super().__init__(file_entry)
-    
-    assert self.magic == "J3D2"
-    assert self.file_type == "bmt3"
+  KNOWN_MAGICS = ["J3D2"]
+  KNOWN_FILE_TYPES = ["bmt3"]
 
 class BRK(J3D):
-  def __init__(self, file_entry):
-    super().__init__(file_entry)
-    
-    assert self.magic == "J3D1"
-    assert self.file_type == "brk1"
+  KNOWN_MAGICS = ["J3D1"]
+  KNOWN_FILE_TYPES = ["brk1"]
 
 class BTK(J3D):
-  def __init__(self, file_entry):
-    super().__init__(file_entry)
-    
-    assert self.magic == "J3D1"
-    assert self.file_type == "btk1"
+  KNOWN_MAGICS = ["J3D1"]
+  KNOWN_FILE_TYPES = ["btk1"]
