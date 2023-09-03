@@ -20,13 +20,12 @@ class INF1Node(BUNFOE):
   type: INF1NodeType
   index: u16
   
-  def __init__(self, data):
-    super(INF1Node, self).__init__(data)
-    self.parent = None
-    self.children = []
+  # TODO: hidden fields
+  # parent: 'INF1Node' = field(ignore=True)
+  # children: list['INF1Node'] = field(ignore=True)
   
   def read(self, offset):
-    super(INF1Node, self).read(offset)
+    super().read(offset)
     self.parent = None
     self.children = []
 

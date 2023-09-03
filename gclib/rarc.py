@@ -509,8 +509,6 @@ class RARCNode:
 class RARCFileEntry(GCLibFileEntry):
   ENTRY_SIZE = 0x14
   
-  data: BytesIO
-  
   def __init__(self, rarc):
     super().__init__()
     

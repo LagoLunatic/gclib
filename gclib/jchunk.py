@@ -10,9 +10,6 @@ class JChunk(BUNFOE):
   magic: MagicStr[4]
   size: u32
   
-  def __init__(self, data):
-    super().__init__(data)
-  
   def read(self, offset):
     super().read(offset)
     

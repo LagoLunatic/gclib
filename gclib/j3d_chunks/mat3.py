@@ -355,8 +355,8 @@ class MAT3(JChunk):
   dither_list_offset             : u32
   nbt_scale_list_offset          : u32
   
-  def __init__(self, data):
-    super().__init__(data)
+  def __post_init__(self, data):
+    super().__post_init__(data)
     
     self.queued_values_to_write: dict[str, list] = {}
     self.queued_list_data_types: dict[str, type] = {}
