@@ -148,7 +148,7 @@ def bunfoe(cls=None, /, *,
   return wrap(cls)
 
 
-@bunfoe
+@bunfoe(eq=False)
 class BUNFOE:
   """Binary-UNpacking Field-Owning Entity.
   

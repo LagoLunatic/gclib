@@ -115,8 +115,7 @@ class JPC:
   def replace_texture(self, texture):
     if texture.filename not in self.textures_by_filename:
       raise Exception("Cannot replace a texture that does not already exist: %s" % texture.filename)
-    existing_texture = self.textures_by_filename[texture.filename]
-    texture_id = self.textures.index(existing_texture)
+    texture_id = [tex.filename for tex in self.textures].index(texture.filename)
     self.textures[texture_id] = texture
     self.textures_by_filename[texture.filename] = texture
   
@@ -205,8 +204,7 @@ class JPC:
       # First regenerate this particle's TDB1 texture ID list based off the filenames.
       particle.tdb1.texture_ids = []
       for texture_filename in particle.tdb1.texture_filenames:
-        texture = self.textures_by_filename[texture_filename]
-        texture_id = self.textures.index(texture)
+        texture_id = [tex.filename for tex in self.textures].index(texture_filename)
         particle.tdb1.texture_ids.append(texture_id)
       
       particle.save()
