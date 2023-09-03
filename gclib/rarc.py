@@ -11,8 +11,8 @@ from gclib.yaz0 import Yaz0
 GCLibFileT = TypeVar('GCLibFileT', bound=GCLibFile)
 
 class RARC(GCLibFile):
-  def __init__(self, file_entry_or_data = None):
-    super().__init__(file_entry_or_data)
+  def __init__(self, flexible_data = None):
+    super().__init__(flexible_data)
     
     self.magic = "RARC"
     self.size = None

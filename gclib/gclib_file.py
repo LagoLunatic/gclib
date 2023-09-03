@@ -1,5 +1,3 @@
-
-from typing import Union
 from io import BytesIO
 
 from gclib.yaz0 import Yaz0
@@ -18,19 +16,35 @@ class GCLibFileEntry:
 
 class GCLibFile:
   """A generic parent class to handle initializing from multiple possible data sources.
-  It can handle receiving binary data from a FileEntry (e.g. from inside of a RARC), from a BytesIO,
-  or not receiving any initial data, instead creating a new file from scratch."""
   
-  def __init__(self, file_entry_or_data: Union[GCLibFileEntry, BytesIO, None] = None):
-    if isinstance(file_entry_or_data, GCLibFileEntry):
-      self.file_entry = file_entry_or_data
+  It can handle receiving binary data from a FileEntry (e.g. from inside of a RARC), from a BytesIO,
+  reading from a given file path, or not receiving any initial data, instead creating a new file
+  from scratch.
+  
+  It also automatically decompresses the data, if it detects it was compressed.
+  """
+  
+  data: BytesIO
+  file_entry: GCLibFileEntry | None
+  
+  def __init__(self, flexible_data: GCLibFileEntry | BytesIO | str | None = None):
+    if isinstance(flexible_data, GCLibFileEntry):
+      self.file_entry = flexible_data
       self.file_entry.decompress_data_if_necessary()
       self.data = self.file_entry.data
-    elif isinstance(file_entry_or_data, BytesIO):
-      self.data = file_entry_or_data
-      if Yaz0.check_is_compressed(self.data):
-        self.data = Yaz0.decompress(self.data)
-      self.file_entry = None
+      return
     else:
-      self.data = BytesIO()
       self.file_entry = None
+    
+    if isinstance(flexible_data, BytesIO):
+      self.data = flexible_data
+    elif isinstance(flexible_data, str):
+      with open(flexible_data, "rb") as f:
+        self.data = BytesIO(f.read())
+    elif flexible_data is None:
+      self.data = BytesIO()
+    else:
+      raise TypeError(f"Unsupported init argument type to GCLibFile: {type(flexible_data)}")
+    
+    if Yaz0.check_is_compressed(self.data):
+      self.data = Yaz0.decompress(self.data)

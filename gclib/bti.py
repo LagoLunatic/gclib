@@ -23,10 +23,10 @@ class FilterMode(Enum):
   LinearMipmapLinear   = 5
 
 class BTI(GCLibFile):
-  def __init__(self, file_entry_or_data = None, header_offset=0):
-    if isinstance(file_entry_or_data, GCLibFileEntry):
+  def __init__(self, flexible_data = None, header_offset=0):
+    if isinstance(flexible_data, GCLibFileEntry) or isinstance(flexible_data, str):
       assert header_offset == 0
-    super().__init__(file_entry_or_data)
+    super().__init__(flexible_data)
     
     self.header_offset = header_offset
     

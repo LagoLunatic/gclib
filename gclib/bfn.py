@@ -19,8 +19,8 @@ class BFN(GCLibFile):
     "WID1",
   ]
   
-  def __init__(self, file_entry_or_data = None):
-    super().__init__(file_entry_or_data)
+  def __init__(self, flexible_data = None):
+    super().__init__(flexible_data)
     
     self.inf1s: list[INF1] = []
     self.gly1s: list[GLY1] = []

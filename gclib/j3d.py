@@ -19,8 +19,8 @@ class J3D(GCLibFile):
   KNOWN_MAGICS = None
   KNOWN_FILE_TYPES = None
   
-  def __init__(self, file_entry_or_data = None):
-    super().__init__(file_entry_or_data)
+  def __init__(self, flexible_data = None):
+    super().__init__(flexible_data)
     
     self.read()
   
