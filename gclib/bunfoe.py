@@ -1,5 +1,5 @@
 import dataclasses
-from dataclasses import MISSING, InitVar
+from dataclasses import MISSING
 from enum import Enum
 from typing import BinaryIO, ClassVar, Self, Type, TypeVar
 from types import GenericAlias
@@ -96,12 +96,15 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
   return Field(default, default_factory, init, repr, hash, compare,
                metadata, kw_only, length, ignore, bitfield, bits, assert_default)
 
-def fields(class_or_instance) -> tuple[Field, ...]:
+def fields(class_or_instance, include_ignored=False) -> tuple[Field, ...]:
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
     raise TypeError(f'{class_or_instance} does not inherit from BUNFOE') from None
   if not hasattr(class_or_instance, dataclasses._FIELDS):
     raise TypeError(f'{class_or_instance} does not use the @bunfoe decorator') from None
-  return dataclasses.fields(class_or_instance)
+  dataclass_fields = dataclasses.fields(class_or_instance)
+  if not include_ignored:
+    dataclass_fields = [f for f in dataclass_fields if not f.ignore]
+  return dataclass_fields
 
 
 def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
@@ -157,16 +160,14 @@ class BUNFOE:
   
   # data is the binary data the instance will be unpacked from upon calling read().
   # If not passed upon instantiation, it will default to a new blank BytesIO.
-  data: InitVar[BinaryIO] = field(default=None, kw_only=False)
+  data: BinaryIO = field(default_factory=BytesIO, repr=False, compare=False, kw_only=False, ignore=True)
   
   DATA_SIZE: ClassVar = None
   # TODO: automatically calculate BYTE_SIZE based on the size of all the fields combined?
   
-  def __post_init__(self, data: BinaryIO | None):
-    if data is None:
-      self.data = BytesIO()
-    else:
-      self.data = data
+  def __post_init__(self):
+    # This doesn't do anything, it's just a dummy in case any child classes want to call super.
+    pass
   
   def copy(self, /, **changes) -> Self:
     return dataclasses.replace(self, **changes)
@@ -192,7 +193,7 @@ class BUNFOE:
       # padding. Maybe in the future it could double check a DATA_SIZE/BYTE_SIZE constant.
       size = 0
       for subfield in fields(field_type):
-        if subfield.ignore or subfield.bits is not None:
+        if subfield.bits is not None:
           continue
         if isinstance(subfield.type, GenericAlias) and subfield.type.__origin__ == list:
           size += BUNFOE.get_list_field_byte_size(subfield)
@@ -243,9 +244,6 @@ class BUNFOE:
     return offset
   
   def read_field(self, field: Field, offset: int) -> int:
-    if field.ignore:
-      return offset
-    
     if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
       value, offset = self.read_list_field(field, offset)
     else:
@@ -381,8 +379,6 @@ class BUNFOE:
     return offset
   
   def save_field(self, field: Field, offset: int) -> int:
-    if field.ignore:
-      return offset
     value = getattr(self, field.name)
     
     if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:

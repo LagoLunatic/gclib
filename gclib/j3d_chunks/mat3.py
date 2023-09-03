@@ -5,7 +5,7 @@ from enum import Enum
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields, InitVar
+from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
 from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16
 from gclib.jchunk import JChunk
 import gclib.gx_enums as GX
@@ -158,7 +158,7 @@ class NBTScale(BUNFOE):
 class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
-  mat3: InitVar['MAT3'] = field(default=None, kw_only=False)
+  mat3: 'MAT3' = field(default=None, repr=False, compare=False, kw_only=False, ignore=True)
   
   pixel_engine_mode   : PixelEngineMode        = PixelEngineMode.Opaque
   cull_mode           : GX.CullMode            = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
@@ -189,10 +189,6 @@ class Material(BUNFOE):
   alpha_compare       : AlphaCompare           = field(metadata={'indexed_by': (u16, 'alpha_compare_list_offset')})
   blend_mode          : BlendMode              = field(metadata={'indexed_by': (u16, 'blend_mode_list_offset')})
   nbt_scale           : NBTScale               = field(metadata={'indexed_by': (u16, 'nbt_scale_list_offset')})
-  
-  def __post_init__(self, data, mat3: 'MAT3'):
-    super().__post_init__(data)
-    self.mat3 = mat3
   
   def read_field(self, field: Field, offset: int) -> int:
     if 'indexed_by' not in field.metadata:
@@ -355,8 +351,8 @@ class MAT3(JChunk):
   dither_list_offset             : u32
   nbt_scale_list_offset          : u32
   
-  def __post_init__(self, data):
-    super().__post_init__(data)
+  def __post_init__(self):
+    super().__post_init__()
     
     self.queued_values_to_write: dict[str, list] = {}
     self.queued_list_data_types: dict[str, type] = {}
