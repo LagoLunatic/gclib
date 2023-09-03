@@ -20,25 +20,15 @@ class INF1Node(BUNFOE):
   type: INF1NodeType
   index: u16
   
-  # TODO: hidden fields
-  # parent: 'INF1Node' = field(ignore=True)
-  # children: list['INF1Node'] = field(ignore=True)
-  
-  def read(self, offset):
-    super().read(offset)
-    self.parent = None
-    self.children = []
+  parent: 'INF1Node' = field(default=None, repr=False, compare=False, ignore=True)
+  children: list['INF1Node'] = field(default_factory=list, repr=False, compare=False, ignore=True)
 
 class INF1(JChunk):
-  # TODO: this does not properly read the hierarchy. test on tetra player model for an error.
   def read_chunk_specific_data(self):
     self.hierarchy_data_offset = fs.read_u32(self.data, 0x14)
     
     offset = self.hierarchy_data_offset
-    self.flat_hierarchy = []
-    self.hierarchy = []
-    parent_node = None
-    prev_node = None
+    self.flat_hierarchy: list[INF1Node] = []
     while True:
       if offset >= self.size:
         raise Exception("No INF1 end node found")
@@ -50,20 +40,35 @@ class INF1(JChunk):
       
       if node.type == INF1NodeType.FINISH:
         break
-      elif node.type in [INF1NodeType.JOINT, INF1NodeType.MATERIAL, INF1NodeType.SHAPE]:
-        node.parent = parent_node
-        if parent_node:
-          parent_node.children.append(node)
-        else:
-          self.hierarchy.append(node)
-      elif node.type == INF1NodeType.OPEN_CHILD:
-        parent_node = prev_node
-      elif node.type == INF1NodeType.CLOSE_CHILD:
-        parent_node = parent_node.parent
-      
-      prev_node = node
     
-    #self.print_hierarchy_recursive(self.hierarchy)
+    self.build_scene_graph_recursive()
+    # self.print_hierarchy_recursive([self.flat_hierarchy[0]])
+  
+  def build_scene_graph_recursive(self, parent_node: INF1Node = None, start_i: int = 0):
+    if parent_node is not None:
+      assert parent_node.type in [INF1NodeType.JOINT, INF1NodeType.MATERIAL, INF1NodeType.SHAPE]
+    i = start_i
+    prev_node = None
+    while i < len(self.flat_hierarchy):
+      node = self.flat_hierarchy[i]
+      i += 1
+      
+      if node.type in [INF1NodeType.JOINT, INF1NodeType.MATERIAL, INF1NodeType.SHAPE]:
+        prev_node = node
+        if parent_node is not None:
+          parent_node.children.append(node)
+      elif node.type == INF1NodeType.OPEN_CHILD:
+        assert prev_node is not None
+        i = self.build_scene_graph_recursive(prev_node, i)
+        if i == -1:
+          return -1
+      elif node.type == INF1NodeType.CLOSE_CHILD:
+        return i
+      elif node.type == INF1NodeType.FINISH:
+        assert i == len(self.flat_hierarchy)
+        return -1
+    
+    return i
   
   def print_hierarchy_recursive(self, nodes, indent=0):
     for node in nodes:
