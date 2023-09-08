@@ -143,18 +143,20 @@ class JPC:
     for jpa_path in all_jpa_file_paths:
       # Read the particle itself.
       with open(jpa_path, "rb") as f:
-        data = BytesIO(f.read())
-      particle = Particle(data, 0)
+        jpa_data = BytesIO(f.read())
+      particle = Particle(jpa_data, 0, self.version)
       new_particles.append(particle)
       new_textures_for_particle_id[particle.particle_id] = []
       
       # Read the textures.
       offset = fs.data_len(particle.data)
       while True:
-        if offset == fs.data_len(data):
+        if offset == fs.data_len(jpa_data):
           break
-        texture = TEX1()
-        texture.read(data, offset)
+        size = fs.read_u32(jpa_data, offset+4)
+        chunk_data = fs.read_sub_data(jpa_data, offset, size)
+        texture = TEX1(chunk_data, self.version)
+        texture.read(0)
         new_textures.append(texture)
         new_textures_for_particle_id[particle.particle_id].append(texture)
         offset += texture.size
