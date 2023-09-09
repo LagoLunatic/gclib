@@ -149,8 +149,14 @@ class GCM:
     
     return num_files_overwritten
   
-  def collect_files_to_replace_and_add_from_disk(self, input_directory):
+  def collect_files_to_replace_and_add_from_disk(self, input_directory, base_dir=None):
     # Creates lists of files in a folder, separated by ones that would replace existing files in the GCM and ones that are new.
+    # base_dir can optionally be a GCMFileEntry to use as the root directory of the replacement.
+    # If unspecified, the entire GCM will be treated as the root instead.
+    
+    path_prefix = ""
+    if base_dir is not None:
+      path_prefix = f"{base_dir.file_path}/"
     
     replace_paths = []
     add_paths = []
@@ -159,10 +165,13 @@ class GCM:
         file_path = os.path.join(dir_path, file_name)
         relative_file_path = os.path.relpath(file_path, input_directory)
         relative_file_path = relative_file_path.replace("\\", "/")
+        relative_file_path = path_prefix + relative_file_path
+        
         if relative_file_path.startswith("sys/"):
           sys_rel_file_path = os.path.relpath(relative_file_path, "sys")
           if sys_rel_file_path not in ["apploader.img", "bi2.bin", "boot.bin", "fst.bin", "main.dol"]:
             raise Exception("Tried to add an invalid system file: %s" % relative_file_path)
+        
         if relative_file_path.lower() in self.files_by_path_lowercase:
           replace_paths.append(relative_file_path)
         else:
@@ -170,44 +179,80 @@ class GCM:
     
     return (replace_paths, add_paths)
   
-  def import_files_from_disk_by_paths(self, input_directory, replace_paths, add_paths):
+  def import_files_from_disk_by_paths(self, input_directory, replace_paths, add_paths, base_dir=None):
+    path_prefix = ""
+    if base_dir is not None:
+      path_prefix = f"{base_dir.file_path}/"
+    
     files_done = 0
     
-    for relative_file_path in replace_paths:
+    for gcm_file_path in replace_paths:
+      assert gcm_file_path.startswith(path_prefix)
+      relative_file_path = gcm_file_path.removeprefix(path_prefix)
+      
       file_path = os.path.join(input_directory, relative_file_path)
       if os.path.isfile(file_path):
         with open(file_path, "rb") as f:
-          self.changed_files[relative_file_path] = BytesIO(f.read())
+          self.changed_files[gcm_file_path] = BytesIO(f.read())
       else:
-        raise Exception("File appears to have been deleted or moved: %s" % relative_file_path)
+        raise Exception("File appears to have been deleted or moved: %s" % gcm_file_path)
       
       files_done += 1
-      yield(relative_file_path, files_done)
+      yield(gcm_file_path, files_done)
     
-    for relative_file_path in add_paths:
+    for gcm_file_path in add_paths:
+      assert gcm_file_path.startswith(path_prefix)
+      relative_file_path = gcm_file_path.removeprefix(path_prefix)
+      
       file_path = os.path.join(input_directory, relative_file_path)
       if os.path.isfile(file_path):
         with open(file_path, "rb") as f:
-          self.add_new_file(relative_file_path, BytesIO(f.read()))
+          self.add_new_file(gcm_file_path, BytesIO(f.read()))
       else:
-        raise Exception("File appears to have been deleted or moved: %s" % relative_file_path)
+        raise Exception("File appears to have been deleted or moved: %s" % gcm_file_path)
       
       files_done += 1
-      yield(relative_file_path, files_done)
+      yield(gcm_file_path, files_done)
   
-  def export_disc_to_folder_with_changed_files(self, output_folder_path, only_changed_files=False):
+  def get_num_files(self, base_dir=None):
+    if base_dir is None:
+      return len(self.files_by_path)
+    
+    base_dir_path = base_dir.file_path
+    
+    num_files = 0
+    for file_path, file_entry in self.files_by_path.items():
+      if file_path.startswith(f"{base_dir_path}/"):
+        num_files += 1
+    
+    return num_files
+  
+  def export_disc_to_folder_with_changed_files(self, output_folder_path, *, base_dir=None, only_changed_files=False):
+    base_dir_path = None
+    if base_dir is not None:
+      base_dir_path = base_dir.file_path
+    
     files_done = 0
     
     for file_path, file_entry in self.files_by_path.items():
-      full_file_path = os.path.join(output_folder_path, file_path)
-      dir_name = os.path.dirname(full_file_path)
+      if base_dir is None:
+        relative_file_path = file_path
+      else:
+        if file_path.startswith(f"{base_dir_path}/"):
+          relative_file_path = os.path.relpath(file_path, base_dir_path)
+        else:
+          # This file isn't in the specified directory.
+          continue
+      
+      out_file_path = os.path.join(output_folder_path, relative_file_path)
+      dir_name = os.path.dirname(out_file_path)
       
       if file_path in self.changed_files:
         if not os.path.isdir(dir_name):
           os.makedirs(dir_name)
         
         file_data = self.changed_files[file_path]
-        with open(full_file_path, "wb") as f:
+        with open(out_file_path, "wb") as f:
           file_data.seek(0)
           f.write(file_data.read())
       else:
@@ -219,7 +264,7 @@ class GCM:
         # Need to avoid reading enormous files all at once
         size_remaining = file_entry.file_size
         offset_in_file = 0
-        with open(full_file_path, "wb") as f:
+        with open(out_file_path, "wb") as f:
           while size_remaining > 0:
             size_to_read = min(size_remaining, MAX_DATA_SIZE_TO_READ_AT_ONCE)
             
@@ -522,6 +567,7 @@ class GCMFileEntry:
     self.is_dir = ((is_dir_and_name_offset & 0xFF000000) != 0)
     self.name_offset = (is_dir_and_name_offset & 0x00FFFFFF)
     self.name = ""
+    self.file_path = None
     if self.is_dir:
       self.parent_fst_index = file_data_offset_or_parent_fst_index
       self.next_fst_index = file_size_or_next_fst_index
