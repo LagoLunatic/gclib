@@ -158,7 +158,7 @@ class TextBoxType(Enum):
 # The functions then hardcode what the maximum line length will be.
 TEXT_BOX_TYPE_TO_MAX_LINE_LENGTH = {
   TextBoxType.DIALOG         : 503, # dMsg_ScreenDataValueInitTalk
-  TextBoxType.SPECIAL        : 419, # dMsg_ScreenDataValueInitItem
+  TextBoxType.SPECIAL        : 503, # dMsg_ScreenDataValueInitItem
   TextBoxType.WOOD           : 503, # dMsg_ScreenDataValueInitTalk
   TextBoxType.UNKNOWN_3      : 503, # dMsg_ScreenDataValueInitTalk
   TextBoxType.UNKNOWN_4      : 503, # dMsg_ScreenDataValueInitTalk
