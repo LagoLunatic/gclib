@@ -8,19 +8,7 @@ from gclib.gclib_file import GCLibFile, GCLibFileEntry
 from gclib.texture_utils import ImageFormat, PaletteFormat
 from gclib.texture_utils import BLOCK_WIDTHS, BLOCK_HEIGHTS, BLOCK_DATA_SIZES
 from gclib.texture_utils import IMAGE_FORMATS_THAT_USE_PALETTES, GREYSCALE_IMAGE_FORMATS, GREYSCALE_PALETTE_FORMATS
-
-class WrapMode(Enum):
-  ClampToEdge    = 0
-  Repeat         = 1
-  MirroredRepeat = 2
-
-class FilterMode(Enum):
-  Nearest              = 0
-  Linear               = 1
-  NearestMipmapNearest = 2
-  NearestMipmapLinear  = 3
-  LinearMipmapNearest  = 4
-  LinearMipmapLinear   = 5
+from gclib.gx_enums import WrapMode, FilterMode
 
 class BTI(GCLibFile):
   def __init__(self, flexible_data = None, header_offset=0):

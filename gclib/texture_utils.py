@@ -7,6 +7,7 @@ import operator
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.gx_enums import ImageFormat, PaletteFormat
 
 try:
   import pyfastbti # type: ignore
@@ -22,24 +23,6 @@ except ImportError:
 
 class TooManyColorsError(Exception):
   pass
-
-class ImageFormat(u8, Enum):
-  I4     =   0
-  I8     =   1
-  IA4    =   2
-  IA8    =   3
-  RGB565 =   4
-  RGB5A3 =   5
-  RGBA32 =   6
-  C4     =   8
-  C8     =   9
-  C14X2  = 0xA
-  CMPR   = 0xE
-
-class PaletteFormat(Enum):
-  IA8    = 0
-  RGB565 = 1
-  RGB5A3 = 2
 
 BLOCK_WIDTHS = {
   ImageFormat.I4    : 8,

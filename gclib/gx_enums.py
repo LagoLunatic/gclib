@@ -1,6 +1,37 @@
 from enum import Enum
 from gclib.fs_helpers import u32, u8
 
+class ImageFormat(u8, Enum):
+  I4     = 0x0
+  I8     = 0x1
+  IA4    = 0x2
+  IA8    = 0x3
+  RGB565 = 0x4
+  RGB5A3 = 0x5
+  RGBA32 = 0x6
+  C4     = 0x8
+  C8     = 0x9
+  C14X2  = 0xA
+  CMPR   = 0xE
+
+class PaletteFormat(Enum):
+  IA8    = 0
+  RGB565 = 1
+  RGB5A3 = 2
+
+class WrapMode(Enum):
+  ClampToEdge    = 0
+  Repeat         = 1
+  MirroredRepeat = 2
+
+class FilterMode(Enum):
+  Nearest              = 0
+  Linear               = 1
+  NearestMipmapNearest = 2
+  NearestMipmapLinear  = 3
+  LinearMipmapNearest  = 4
+  LinearMipmapLinear   = 5
+
 class Attr(u32, Enum):
   PositionMatrixIndex   = 0x00
   Tex0MatrixIndex       = 0x01
