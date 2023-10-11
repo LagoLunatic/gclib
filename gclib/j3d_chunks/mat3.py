@@ -10,11 +10,6 @@ from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu
 from gclib.jchunk import JChunk
 import gclib.gx_enums as GX
 
-class PixelEngineMode(u8, Enum):
-  Opaque      = 0x01
-  Alpha_Test  = 0x02
-  Translucent = 0x04
-
 @bunfoe
 class ZMode(BUNFOE):
   depth_test : bool           = True
@@ -160,7 +155,7 @@ class Material(BUNFOE):
   
   mat3: 'MAT3' = field(default=None, repr=False, compare=False, kw_only=False, ignore=True)
   
-  pixel_engine_mode   : PixelEngineMode        = PixelEngineMode.Opaque
+  pixel_engine_mode   : GX.PixelEngineMode     = GX.PixelEngineMode.Opaque
   cull_mode           : GX.CullMode            = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
   num_color_chans     : u8                     = field(metadata={'indexed_by': (u8,  'num_color_chans_list_offset')})
   num_tex_gens        : u8                     = field(metadata={'indexed_by': (u8,  'num_tex_gens_list_offset')})

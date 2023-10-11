@@ -170,6 +170,11 @@ class MDLEntry(BUNFOE):
     self.texture_subpacket_offset = None
     self.tev_subpacket_offset = None
     self.pixel_subpacket_offset = None
+    
+    self.unknown_float_1 = 0.029761791229248
+    self.unknown_float_2 = 0.025384426116943
+    
+    self.pixel_engine_mode = GX.PixelEngineMode.Opaque
   
   def read(self, offset: int, size: int) -> int:
     self.bp_commands.clear()
@@ -233,14 +238,14 @@ class MDLEntry(BUNFOE):
 
 @bunfoe
 class MDL3(JChunk):
-  num_entries           : u16
-  _padding_1            : u16 = 0xFFFF
-  packets_offset        : u32
-  subpackets_offset     : u32
-  matrix_index_offset   : u32
-  unknown_0_offset      : u32
-  indexes_offset        : u32
-  mat_names_table_offset: u32
+  num_entries              : u16
+  _padding_1               : u16 = 0xFFFF
+  packets_offset           : u32
+  subpackets_offset        : u32
+  matrix_index_offset      : u32
+  pixel_engine_modes_offset: u32
+  indexes_offset           : u32
+  mat_names_table_offset   : u32
   
   def read_chunk_specific_data(self):
     BUNFOE.read(self, 0)
@@ -255,6 +260,18 @@ class MDL3(JChunk):
       self.entries.append(entry)
       packet_offset += 8
     
+    offset = self.matrix_index_offset
+    for entry in self.entries:
+      entry.unknown_float_1 = fs.read_and_unpack_bytes(self.data, offset+0x00, 4, ">f")[0]
+      entry.unknown_float_2 = fs.read_and_unpack_bytes(self.data, offset+0x04, 4, "<f")[0]
+      offset += 8
+    
+    offset = self.pixel_engine_modes_offset
+    for entry in self.entries:
+      pixel_engine_mode = GX.PixelEngineMode(fs.read_u8(self.data, offset))
+      offset += 1
+      entry.pixel_engine_mode = pixel_engine_mode
+    
     self.string_table_offset = fs.read_u32(self.data, 0x20)
     self.mat_names = self.read_string_table(self.string_table_offset)
   
@@ -263,9 +280,17 @@ class MDL3(JChunk):
     
     self.num_entries = len(self.entries)
     
+    # Temporarily write placeholders for the packets.
     self.packets_offset = fs.data_len(self.data)
     packet_offset = self.packets_offset
-    entry_offset = self.packets_offset + 8*len(self.entries)
+    for entry in self.entries:
+      fs.write_u32(self.data, packet_offset+0, 0)
+      fs.write_u32(self.data, packet_offset+4, 0)
+      packet_offset += 8
+    entry_offset = fs.align_data_and_pad_offset(self.data, packet_offset, 0x20)
+    
+    # Write the entries as well as the actual packets.
+    packet_offset = self.packets_offset
     for entry in self.entries:
       next_entry_offset = entry.save(entry_offset)
       entry_size = next_entry_offset - entry_offset
@@ -288,31 +313,30 @@ class MDL3(JChunk):
       offset += 0x10
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
-    # TODO placeholder
     self.matrix_index_offset = fs.data_len(self.data)
     for entry in self.entries:
-      fs.write_bytes(self.data, offset, b'\0'*8)
+      # A big endian float followed by a little endian float. What these are exactly isn't known.
+      # They're usually all the same value, but there are exceptions, such as Link's eyeL and eyeR materials.
+      fs.write_and_pack_bytes(self.data, offset+0x00, [entry.unknown_float_1], ">f")
+      fs.write_and_pack_bytes(self.data, offset+0x04, [entry.unknown_float_2], "<f")
       offset += 8
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
-    # TODO placeholder
-    self.unknown_0_offset = fs.data_len(self.data)
+    self.pixel_engine_modes_offset = fs.data_len(self.data)
     for entry in self.entries:
-      fs.write_bytes(self.data, offset, b'\0'*1)
+      fs.write_u8(self.data, offset, entry.pixel_engine_mode.value)
       offset += 1
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
-    # TODO placeholder
     self.indexes_offset = fs.data_len(self.data)
-    for entry in self.entries:
-      fs.write_bytes(self.data, offset, b'\0'*2)
+    for entry_index, entry in enumerate(self.entries):
+      fs.write_u16(self.data, offset, entry_index)
       offset += 2
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
     # Write the material names.
     self.mat_names_table_offset = offset
     offset = self.write_string_table(self.mat_names_table_offset, self.mat_names)
-    offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
     # Finally, save the new offsets to each list back to the header.
     BUNFOE.save(self, 0)

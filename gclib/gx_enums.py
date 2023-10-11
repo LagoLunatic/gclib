@@ -89,6 +89,11 @@ class ComponentType(u32, Enum):
   RGBA6  = 0x04
   RGBA8  = 0x05
 
+class PixelEngineMode(u8, Enum):
+  Opaque      = 0x01
+  Alpha_Test  = 0x02
+  Translucent = 0x04
+
 class CullMode(u32, Enum):
   Cull_None  = 0x00
   Cull_Front = 0x01
