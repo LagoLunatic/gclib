@@ -13,7 +13,6 @@ from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, 
 
 # TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 # TODO: implement read_only attribute (for stuff like magic strings)
-# TODO: implement variable-length arrays (length is defined by another field instead of a constant)
 # TODO: implement hidden attribute (for e.g. array length fields)
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
 
@@ -31,11 +30,11 @@ class Field(dataclasses.Field):
                'hash', 'init', 'compare', 'metadata', 'kw_only',
                '_field_type',  # Private: not to be used by user code.
                # Custom.
-               'length', 'ignore', 'bitfield', 'bits', 'assert_default',
+               'length', 'length_calculator', 'ignore', 'bitfield', 'bits', 'assert_default',
                )
 
-  def __init__(self, default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, length, ignore, bitfield, bits, assert_default):
+  def __init__(self, default, default_factory, init, repr, hash, compare, metadata, kw_only,
+               length, length_calculator, ignore, bitfield, bits, assert_default):
     self.name = None
     self.type = None
     self.default = default
@@ -52,6 +51,7 @@ class Field(dataclasses.Field):
     
     # Custom.
     self.length = length
+    self.length_calculator = length_calculator
     self.ignore = ignore
     self.bitfield = bitfield
     self.bits = bits
@@ -74,6 +74,7 @@ class Field(dataclasses.Field):
             
             # Custom.
             f'length={self.length!r},'
+            f'length_calculator={self.length_calculator!r},'
             f'ignore={self.ignore!r},'
             f'bitfield={self.bitfield!r},'
             f'bits={self.bits!r},'
@@ -83,7 +84,8 @@ class Field(dataclasses.Field):
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
-          length=None, ignore=False, bitfield=False, bits=None, assert_default=False):
+          length=MISSING, length_calculator=MISSING, ignore=False, bitfield=False, bits=None,
+          assert_default=False):
   if default is MISSING and default_factory is MISSING:
     # If no default was specified for this field, we don't want to make it a required argument to
     # __init__ when instantiating the class, as that would interfere with creating a blank instance
@@ -91,10 +93,12 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
     # default to a special object we call UNREAD, which acts as a sentinel that this instance hasn't
     # had its values properly unpacked yet.
     default = UNREAD
+  if length is not MISSING and length_calculator is not MISSING:
+    raise ValueError('cannot specify both length and length_calculator')
   if bitfield and bits is not None:
     raise ValueError('cannot specify both bitfield and bits')
   return Field(default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, length, ignore, bitfield, bits, assert_default)
+               metadata, kw_only, length, length_calculator, ignore, bitfield, bits, assert_default)
 
 def fields(class_or_instance, include_ignored=False) -> tuple[Field, ...]:
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
@@ -196,7 +200,11 @@ class BUNFOE:
         if subfield.bits is not None:
           continue
         if isinstance(subfield.type, GenericAlias) and subfield.type.__origin__ == list:
-          size += BUNFOE.get_list_field_byte_size(subfield)
+          if subfield.length is not MISSING:
+            size += BUNFOE.get_list_field_byte_size(subfield)
+          else:
+            # Impossible to statically determine the byte size of a dynamically-sized field.
+            return None
         else:
           size += BUNFOE.get_byte_size(subfield.type)
       return size
@@ -205,7 +213,7 @@ class BUNFOE:
   
   @staticmethod
   def get_list_field_byte_size(field: Field):
-    assert isinstance(field.length, int) and field.length > 0
+    assert field.length is not MISSING and field.length > 0
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
     arg_type = type_args[0]
@@ -253,14 +261,22 @@ class BUNFOE:
     setattr(self, field.name, value)
     return offset
   
+  def get_list_length(self, field: Field):
+    if field.length is not MISSING:
+      return field.length
+    if field.length_calculator is not MISSING:
+      # length_calculator is a lambda that takes a BUNFOE instance as its only argument and calculates the dynamic list
+      # length based on that instance's earlier fields.
+      return field.length_calculator(self)
+    raise NotImplementedError
+  
   def read_list_field(self, field: Field, offset: int) -> tuple[list, int]:
-    assert isinstance(field.length, int) and field.length > 0
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
     arg_type = type_args[0]
     
     value = []
-    for i in range(field.length):
+    for i in range(self.get_list_length(field)):
       element = self.read_value(arg_type, offset)
       offset += self.get_byte_size(arg_type)
       value.append(element)
@@ -278,13 +294,12 @@ class BUNFOE:
     return bit_offset
   
   def read_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int) -> tuple[list, int]:
-    assert isinstance(field.length, int) and field.length > 0
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
     arg_type = type_args[0]
     
     value = []
-    for i in range(field.length):
+    for i in range(self.get_list_length(field)):
       element = self.read_bitfield_property_value(bitfield, arg_type, bit_offset, field.bits)
       bit_offset += field.bits
       value.append(element)
@@ -390,13 +405,12 @@ class BUNFOE:
     return offset
   
   def save_list_field(self, field: Field, offset: int, value) -> int:
-    assert isinstance(field.length, int) and field.length > 0
-    assert len(value) == field.length
+    assert len(value) == self.get_list_length(field)
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
     arg_type = type_args[0]
     
-    for i in range(field.length):
+    for i in range(self.get_list_length(field)):
       self.save_value(arg_type, offset, value[i])
       offset += self.get_byte_size(arg_type)
     
@@ -414,13 +428,12 @@ class BUNFOE:
     return bit_offset
   
   def save_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int, value) -> int:
-    assert isinstance(field.length, int) and field.length > 0
-    assert len(value) == field.length
+    assert len(value) == self.get_list_length(field)
     type_args = typing.get_args(field.type)
     assert len(type_args) == 1
     arg_type = type_args[0]
     
-    for i in range(field.length):
+    for i in range(self.get_list_length(field)):
       self.save_bitfield_property_value(bitfield, arg_type, bit_offset, field.bits, value[i])
       bit_offset += field.bits
     
