@@ -449,7 +449,10 @@ class BUNFOE:
     bit_mask = ((1 << bits) - 1) << bit_offset
     bitfield_value &= ~bit_mask
     
-    raw_value = int(value) # TODO: use field_type?
+    if issubclass(field_type, Enum):
+      raw_value = value.value
+    else:
+      raw_value = int(value) # TODO: use field_type?
     bitfield_value |= (raw_value << bit_offset) & bit_mask
     setattr(self, bitfield.name, bitfield_value)
   
