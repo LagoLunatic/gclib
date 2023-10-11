@@ -81,21 +81,41 @@ class TX_SETIMAGE(BPCommand):
 
 @bunfoe
 class TX_SETMODE(BPCommand):
-  wrap_s    : GX.WrapMode   = field(bits=2)
-  wrap_t    : GX.WrapMode   = field(bits=2)
-  mag_filter: GX.FilterMode = field(bits=1)
-  min_filter: GX.FilterMode = field(bits=3)
-  diag_lod  : bool          = field(bits=1)
-  lod_bias  : u8            = field(bits=8)
-  unknown   : u8            = field(bits=2)
-  max_aniso : u8            = field(bits=2)
-  lod_clamp : bool          = field(bits=1)
+  wrap_s    : GX.WrapMode = field(bits=2)
+  wrap_t    : GX.WrapMode = field(bits=2)
+  mag_filter: u8          = field(bits=1)
+  min_filter: u8          = field(bits=3)
+  diag_lod  : bool        = field(bits=1)
+  lod_bias  : u8          = field(bits=8)
+  unknown   : u8          = field(bits=2)
+  max_aniso : u8          = field(bits=2)
+  lod_clamp : bool        = field(bits=1)
   
   VALID_REGISTERS = [
     BPRegister.TX_SETMODE0_I0, BPRegister.TX_SETMODE0_I1, BPRegister.TX_SETMODE0_I2, BPRegister.TX_SETMODE0_I3,
     BPRegister.TX_SETMODE0_I4, BPRegister.TX_SETMODE0_I5, BPRegister.TX_SETMODE0_I6, BPRegister.TX_SETMODE0_I7,
     BPRegister.TX_SETMODE1_I0, BPRegister.TX_SETMODE1_I1, BPRegister.TX_SETMODE1_I2, BPRegister.TX_SETMODE1_I3,
     BPRegister.TX_SETMODE1_I4, BPRegister.TX_SETMODE1_I5, BPRegister.TX_SETMODE1_I6, BPRegister.TX_SETMODE1_I7,
+  ]
+
+@bunfoe
+class SU_SSIZE(BPCommand):
+  width_minus_1: u16  = field(bits=16)
+  unknown      : bool = field(bits=1)
+  
+  VALID_REGISTERS = [
+    BPRegister.SU_SSIZE0, BPRegister.SU_SSIZE1, BPRegister.SU_SSIZE2, BPRegister.SU_SSIZE3,
+    BPRegister.SU_SSIZE4, BPRegister.SU_SSIZE5, BPRegister.SU_SSIZE6, BPRegister.SU_SSIZE7,
+  ]
+
+@bunfoe
+class SU_TSIZE(BPCommand):
+  height_minus_1: u16  = field(bits=16)
+  unknown       : bool = field(bits=1)
+  
+  VALID_REGISTERS = [
+    BPRegister.SU_TSIZE0, BPRegister.SU_TSIZE1, BPRegister.SU_TSIZE2, BPRegister.SU_TSIZE3,
+    BPRegister.SU_TSIZE4, BPRegister.SU_TSIZE5, BPRegister.SU_TSIZE6, BPRegister.SU_TSIZE7,
   ]
 
 @bunfoe
@@ -127,9 +147,29 @@ class PE_ZMODE(BPCommand):
   ]
 
 @bunfoe
+class TEXMTX(XFCommand):
+  pass
+  
+  VALID_REGISTERS = [
+    XFRegister.TEXMTX0, XFRegister.TEXMTX1, XFRegister.TEXMTX2, XFRegister.TEXMTX3,
+    XFRegister.TEXMTX4, XFRegister.TEXMTX5, XFRegister.TEXMTX6, XFRegister.TEXMTX7,
+    XFRegister.TEXMTX8, XFRegister.TEXMTX9,
+  ]
+
+@bunfoe
 class MDLEntry(BUNFOE):
   bp_commands: list[BPCommand] = field(default_factory=list)
   xf_commands: list[XFCommand] = field(default_factory=list)
+  
+  def __post_init__(self):
+    super().__post_init__()
+    
+    self.chan_color_subpacket_offset = None
+    self.chan_control_subpacket_offset = None
+    self.tex_gen_subpacket_offset = None
+    self.texture_subpacket_offset = None
+    self.tev_subpacket_offset = None
+    self.pixel_subpacket_offset = None
   
   def read(self, offset: int, size: int) -> int:
     self.bp_commands.clear()
@@ -156,9 +196,31 @@ class MDLEntry(BUNFOE):
     return offset
   
   def save(self, offset: int):
+    orig_offset = offset
+    
+    self.chan_color_subpacket_offset = None
+    self.chan_control_subpacket_offset = None
+    self.tex_gen_subpacket_offset = None
+    self.texture_subpacket_offset = None # TODO
+    self.tev_subpacket_offset = None
+    self.pixel_subpacket_offset = None
+    
     for command in self.bp_commands:
+      if self.tev_subpacket_offset is None and (isinstance(command, TEV_REGISTERL) or isinstance(command, TEV_REGISTERH)):
+        self.tev_subpacket_offset = offset - orig_offset
+      if self.pixel_subpacket_offset is None and command.register in [BPRegister.TEV_FOG_PARAM_0, BPRegister.TEV_FOG_PARAM_1, BPRegister.TEV_FOG_PARAM_2, BPRegister.TEV_FOG_PARAM_3]:
+        self.pixel_subpacket_offset = offset - orig_offset
+      
       offset = command.save(offset)
+    
     for command in self.xf_commands:
+      if self.chan_color_subpacket_offset is None and command.register in [XFRegister.CHAN0_AMBCOLOR, XFRegister.CHAN0_MATCOLOR]:
+        self.chan_color_subpacket_offset = offset - orig_offset
+      if self.chan_control_subpacket_offset is None and command.register in [XFRegister.CHAN0_COLOR]:
+        self.chan_control_subpacket_offset = offset - orig_offset
+      if self.tex_gen_subpacket_offset is None and (isinstance(command, TEXMTX) or command.register in [XFRegister.TEXMTXINFO]):
+        self.tex_gen_subpacket_offset = offset - orig_offset
+      
       offset = command.save(offset)
     
     if offset % 0x20 != 0:
@@ -214,10 +276,15 @@ class MDL3(JChunk):
     offset = entry_offset
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
-    # TODO placeholder
     self.subpackets_offset = fs.data_len(self.data)
     for entry in self.entries:
-      fs.write_bytes(self.data, offset, b'\0'*0x10)
+      fs.write_u16(self.data, offset+0x00, entry.chan_color_subpacket_offset or 0)
+      fs.write_u16(self.data, offset+0x02, entry.chan_control_subpacket_offset or 0)
+      fs.write_u16(self.data, offset+0x04, entry.tex_gen_subpacket_offset or 0)
+      fs.write_u16(self.data, offset+0x06, entry.texture_subpacket_offset or 0)
+      fs.write_u16(self.data, offset+0x08, entry.tev_subpacket_offset or 0)
+      fs.write_u16(self.data, offset+0x0A, entry.pixel_subpacket_offset or 0)
+      fs.write_s32(self.data, offset+0x0C, -1) # Padding
       offset += 0x10
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
