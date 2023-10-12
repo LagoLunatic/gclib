@@ -1,4 +1,6 @@
 __all__ = [
+  "drw1",
+  "evp1",
   "inf1",
   "jnt1",
   "mat3",
@@ -20,7 +22,9 @@ for module_path in glob.glob(glob.escape(os.path.dirname(__file__)) + "/*.py"):
   assert module_name in __all__, f"{module_name} missing from __init__"
 
 import importlib
-CHUNK_TYPES = {}
+from typing import Type
+from gclib.jchunk import JChunk
+CHUNK_TYPES: dict[str, Type[JChunk]] = {}
 for chunk_module_name in __all__:
   assert len(chunk_module_name) == 4, "J3D chunk names must be 4 characters long"
   chunk_module = importlib.import_module("." + chunk_module_name, __name__)
