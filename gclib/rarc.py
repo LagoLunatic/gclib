@@ -291,6 +291,25 @@ class RARC(GCLibFile):
     
     return num_files_overwritten
   
+  def each_file_data(self, only_file_exts=None):
+    for file_entry in self.file_entries:
+      if file_entry.is_dir:
+        continue
+      base_name, file_ext = os.path.splitext(file_entry.name)
+      rel_dir = file_entry.parent_node.name
+      display_path = rel_dir + "/" + base_name + file_ext
+      
+      if file_ext == ".arc":
+        inner_rarc = self.get_file(file_entry.name, RARC)
+        inner_rarc.read()
+        for inner_rarc_file_path, file_data in inner_rarc.each_file_data(only_file_exts=only_file_exts):
+          yield (display_path + "/" + inner_rarc_file_path, file_data)
+      else:
+        if only_file_exts is not None and file_ext not in only_file_exts:
+          continue
+        file_entry.decompress_data_if_necessary()
+        yield (display_path, file_entry.data)
+  
   def save_changes(self):
     # Repacks the .arc file.
     # Supports files changing size, name, files being added or removed, nodes being added or removed, etc.

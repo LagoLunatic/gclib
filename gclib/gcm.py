@@ -1,8 +1,10 @@
 
 import os
 from io import BytesIO
+import re
 
 from gclib import fs_helpers as fs
+from gclib.rarc import RARC
 
 MAX_DATA_SIZE_TO_READ_AT_ONCE = 64*1024*1024 # 64MB
 
@@ -226,6 +228,31 @@ class GCM:
         num_files += 1
     
     return num_files
+  
+  def get_all_file_paths_natsort(self):
+    all_file_paths = list(self.files_by_path.keys())
+    
+    # Sort the file names for determinism. And use natural sorting so the room numbers are in order.
+    try_int_convert = lambda string: int(string) if string.isdigit() else string
+    all_file_paths.sort(key=lambda filename: [try_int_convert(c) for c in re.split("([0-9]+)", filename)])
+    
+    return all_file_paths
+  
+  def each_file_data(self, recurse_rarcs=True, only_file_exts=None):
+    all_file_paths = self.get_all_file_paths_natsort()
+    
+    for file_path in all_file_paths:
+      _, file_ext = os.path.splitext(os.path.basename(file_path))
+      
+      if recurse_rarcs and file_ext == ".arc":
+        rarc = RARC(self.get_changed_file_data(file_path))
+        rarc.read()
+        for rarc_file_path, file_data in rarc.each_file_data(only_file_exts=only_file_exts):
+          yield (file_path + "/" + rarc_file_path, file_data)
+      else:
+        if only_file_exts is not None and file_ext not in only_file_exts:
+          continue
+        yield (file_path, self.get_changed_file_data(file_path))
   
   def export_disc_to_folder_with_changed_files(self, output_folder_path, *, base_dir=None, only_changed_files=False):
     base_dir_path = None
