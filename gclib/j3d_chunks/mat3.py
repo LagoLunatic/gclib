@@ -197,7 +197,7 @@ class Material(BUNFOE):
         # These indexes are themselves indexed by the ras/tex sels of tev_swap_mode_list_offset.
         # The problem is that if we just read all of these indexes, the later ones that aren't
         # actually used frequently have junk data for indexes, which would result in us reading out
-        # of bounds. So we have to ensure we *only* read the valid indexes are that used.
+        # of bounds. So we have to ensure we *only* read the valid indexes that are used.
         max_index_to_read = max(
           max(sm.ras_sel, sm.tex_sel)
           for sm in self.tev_swap_modes
@@ -408,12 +408,30 @@ class MAT3(JChunk):
       remap_index = unique_materials.index(mat)
       remap_indexes.append(remap_index)
     
+    # # Print which materials are duplicates of one another (for debugging).
+    # for mat in unique_materials:
+    #   mat_indexes = [i for i, other in enumerate(self.materials) if other == mat]
+    #   print(", ".join(self.mat_names[i] for i in mat_indexes))
+    
+    # Clear out the queues from any previous saves.
+    self.queued_values_to_write.clear()
+    self.queued_list_data_types.clear()
+    # For some reason, certain lists always seem to have certain values in them, even if those values are not used by
+    # any materials in this model.
+    # While these should not have any practical effect, we write them anyway so that resaving the model with no changes
+    # does not change its bytes in any way.
+    self.queue_indexed_value_write(GX.CullMode.Cull_Back, GX.CullMode, 'cull_mode_list_offset')
+    self.queue_indexed_value_write(GX.CullMode.Cull_Front, GX.CullMode, 'cull_mode_list_offset')
+    self.queue_indexed_value_write(GX.CullMode.Cull_None, GX.CullMode, 'cull_mode_list_offset')
+    self.queue_indexed_value_write(False, bool, 'z_compare_list_offset')
+    self.queue_indexed_value_write(True, bool, 'z_compare_list_offset')
+    self.queue_indexed_value_write(False, bool, 'dither_list_offset')
+    self.queue_indexed_value_write(True, bool, 'dither_list_offset')
+    
     # Write the unique materials to material_data_offset.
     # The materials will call MAT3.queue_indexed_value_write to queue a value to write to the MAT3
     # chunk and get their value indexes in return, allowing the materials to be written now, without
     # waiting for the data that comes after them to be written.
-    self.queued_values_to_write.clear()
-    self.queued_list_data_types.clear()
     offset = self.material_data_offset # This offset is constant, always 0x84.
     for mat in unique_materials:
       offset = mat.save(offset)

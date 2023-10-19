@@ -1,12 +1,13 @@
 
+from typing import Optional
 from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk
 from gclib.j3d_chunks import CHUNK_TYPES
 from gclib.j3d_chunks.inf1 import INF1
 from gclib.j3d_chunks.vtx1 import VTX1
-# from gclib.j3d_chunks.evp1 import EVP1
-# from gclib.j3d_chunks.drw1 import DRW1
+from gclib.j3d_chunks.evp1 import EVP1
+from gclib.j3d_chunks.drw1 import DRW1
 from gclib.j3d_chunks.jnt1 import JNT1
 from gclib.j3d_chunks.shp1 import SHP1
 from gclib.j3d_chunks.mat3 import MAT3
@@ -19,8 +20,32 @@ class J3D(GCLibFile):
   KNOWN_MAGICS = None
   KNOWN_FILE_TYPES = None
   
+  inf1: Optional[INF1]
+  vtx1: Optional[VTX1]
+  evp1: Optional[EVP1]
+  drw1: Optional[DRW1]
+  jnt1: Optional[JNT1]
+  shp1: Optional[SHP1]
+  mat3: Optional[MAT3]
+  tex1: Optional[TEX1]
+  mdl3: Optional[MDL3]
+  trk1: Optional[TRK1]
+  ttk1: Optional[TTK1]
+  
   def __init__(self, flexible_data = None):
     super().__init__(flexible_data)
+    
+    self.inf1 = None
+    self.vtx1 = None
+    self.evp1 = None
+    self.drw1 = None
+    self.jnt1 = None
+    self.shp1 = None
+    self.mat3 = None
+    self.tex1 = None
+    self.mdl3 = None
+    self.trk1 = None
+    self.ttk1 = None
     
     self.read()
   
@@ -69,6 +94,16 @@ class J3D(GCLibFile):
         setattr(self, chunk.magic.lower(), chunk)
       
       offset += chunk.size
+    
+    # self.verify_valid_chunks()
+  
+  def verify_valid_chunks(self):
+    class_attrs = type(self).__annotations__
+    for chunk_magic, chunk_class in CHUNK_TYPES.items():
+      chunk_attr = chunk_magic.lower()
+      if chunk_attr in class_attrs:
+        if class_attrs[chunk_attr] == chunk_class:
+          assert getattr(self, chunk_attr) is not None
   
   def save(self, only_chunks:set=None):
     data = self.data
@@ -105,22 +140,33 @@ class BMD(J3D):
   
   inf1: INF1
   vtx1: VTX1
-  # evp1: EVP1
-  # drw1: DRW1
+  evp1: EVP1
+  drw1: DRW1
   jnt1: JNT1
   shp1: SHP1
   mat3: MAT3
   tex1: TEX1
 
-class BDL(BMD):
+class BDL(J3D):
   KNOWN_MAGICS = ["J3D2"]
   KNOWN_FILE_TYPES = ["bdl4"]
   
+  inf1: INF1
+  vtx1: VTX1
+  evp1: EVP1
+  drw1: DRW1
+  jnt1: JNT1
+  shp1: SHP1
+  mat3: MAT3
   mdl3: MDL3
+  tex1: TEX1
 
 class BMT(J3D):
   KNOWN_MAGICS = ["J3D2"]
   KNOWN_FILE_TYPES = ["bmt3"]
+  
+  mat3: MAT3
+  tex1: Optional[TEX1]
 
 class BRK(J3D):
   KNOWN_MAGICS = ["J3D1"]

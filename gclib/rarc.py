@@ -34,8 +34,8 @@ class RARC(GCLibFile):
     self.unknown_2 = 0
     self.unknown_3 = 0
     
-    self.nodes = []
-    self.file_entries = []
+    self.nodes: list[RARCNode] = []
+    self.file_entries: list[RARCFileEntry] = []
     self.instantiated_object_files = {}
   
   def read(self):
@@ -514,7 +514,7 @@ class RARCFileEntry(GCLibFileEntry):
     
     self.rarc = rarc
     
-    self.parent_node = None
+    self.parent_node: RARCNode = None
     self.id = 0xFFFF
   
   def read(self, entry_offset):
