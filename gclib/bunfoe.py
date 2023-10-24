@@ -11,7 +11,6 @@ from io import BytesIO
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
-# TODO: implement assert_default field argument. (assert _padding fields are equal to their default value)
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
@@ -86,6 +85,8 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
           length=MISSING, length_calculator=MISSING, ignore=False, bitfield=False, bits=None,
           assert_default=False):
+  if assert_default and default is MISSING:
+    raise ValueError('must specify default when assert_default is specified')
   if default is MISSING and default_factory is MISSING:
     # If no default was specified for this field, we don't want to make it a required argument to
     # __init__ when instantiating the class, as that would interfere with creating a blank instance
@@ -126,7 +127,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
   
   try:
     base_class = BUNFOE # @IgnoreException
-    assert issubclass(cls, base_class)
+    assert issubclass(cls, base_class), f"Class {cls.__name__} must inherit from BUNFOE"
   except NameError:
     # BUNFOE isn't defined yet as we're still in the middle of creating that class.
     assert cls.__name__ == "BUNFOE"
@@ -239,6 +240,7 @@ class BUNFOE:
           bit_offset = self.read_bitfield_property(bitfield, field, bit_offset)
           continue
       
+      # print(f"0x{offset - orig_offset:X} {field.name}")
       offset = self.read_field(field, offset)
       if field.bitfield:
         bitfield = field
@@ -247,7 +249,7 @@ class BUNFOE:
     assert offset >= orig_offset
     if self.DATA_SIZE is not None:
       size_read = offset - orig_offset
-      assert size_read == self.DATA_SIZE
+      assert size_read == self.DATA_SIZE, f"Expected {self.__class__.__name__} to be 0x{self.DATA_SIZE:X} bytes, but read 0x{size_read:X} bytes"
     
     return offset
   
@@ -259,6 +261,8 @@ class BUNFOE:
       offset += self.get_byte_size(field.type)
     
     setattr(self, field.name, value)
+    if field.assert_default:
+      assert value == field.default, f"Field {field.name} expected value {field.default}, but got {value}"
     return offset
   
   def get_list_length(self, field: Field):
