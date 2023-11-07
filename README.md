@@ -16,13 +16,11 @@ Below is a table of what is supported for each format. A '~' indicates partial s
 | REL    | ✓ | ✓ | ✓ | Relocatable object files |
 | RARC   | ✓ | ✓ | ✓ | Archives |
 | Yaz0   | ✓ | ✓ | ✓ | RLE compression |
-| BTI    | ~ | ~ | ~ | Images |
+| BTI    | ✓ | ✓ | ✓ | Images |
 | J3D    | ~ | ~ | ✕ | Container for various 3D formats |
 | JPC    | ~ | ~ | ✕ | Particle effect archives |
 | BMG    | ~ | ~ | ✕ | Message archives |
 | BFN    | ✓ | ✕ | ✕ | Fonts |
-
-Note: BTI is fully supported except for mipmaps.
 
 ## Installation
 
