@@ -20,6 +20,8 @@ class BTI(GCLibFile):
     
     self.read_header(self.data, header_offset=header_offset)
     
+    assert self.mipmap_count > 0, "Mipmap count must not be zero"
+    
     # The size of all mipmap image data combined is equal to the offset of the next mipmap after the last one.
     image_data_total_size, _, _, _ = self.get_mipmap_offset_and_size(self.mipmap_count)
     
