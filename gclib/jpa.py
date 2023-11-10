@@ -33,7 +33,6 @@ class JParticle:
   
   def __init__(self, jpc_data, particle_offset, jpac_version: JPACVersion):
     self.version = jpac_version
-    self.num_textures = None # TODO
     
     if self.version == JPACVersion.JPAC1_00:
       self.read_header_jpc100(jpc_data, particle_offset)
@@ -66,7 +65,7 @@ class JParticle:
     self.num_chunks = fs.read_u16(jpc_data, particle_offset + 0x2)
     self.num_fld1_chunks = fs.read_u8(jpc_data, particle_offset + 0x4)
     self.num_kfa1_chunks = fs.read_u8(jpc_data, particle_offset + 0x5)
-    self.num_tdb_chunks = fs.read_u8(jpc_data, particle_offset + 0x6)
+    self.num_textures = fs.read_u8(jpc_data, particle_offset + 0x6)
     self.unknown_7 = fs.read_u8(jpc_data, particle_offset + 0x7)
   
   def read_chunks(self, jpc_data, particle_offset):
