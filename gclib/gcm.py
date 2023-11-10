@@ -1,6 +1,7 @@
 
 import os
 from io import BytesIO
+from typing import BinaryIO
 import re
 
 from gclib import fs_helpers as fs
@@ -11,11 +12,11 @@ MAX_DATA_SIZE_TO_READ_AT_ONCE = 64*1024*1024 # 64MB
 class GCM:
   def __init__(self, iso_path):
     self.iso_path = iso_path
-    self.files_by_path = {}
-    self.files_by_path_lowercase = {}
-    self.dirs_by_path = {}
-    self.dirs_by_path_lowercase = {}
-    self.changed_files = {}
+    self.files_by_path: dict[str, GCMBaseFile] = {}
+    self.files_by_path_lowercase: dict[str, GCMBaseFile] = {}
+    self.dirs_by_path: dict[str, GCMBaseFile] = {}
+    self.dirs_by_path_lowercase: dict[str, GCMBaseFile] = {}
+    self.changed_files: dict[str, BinaryIO] = {}
   
   def read_entire_disc(self):
     self.iso_file = open(self.iso_path, "rb")
@@ -73,14 +74,14 @@ class GCM:
         i += 1
   
   def read_system_data(self):
-    self.files_by_path["sys/boot.bin"] = SystemFile(0, 0x440, "boot.bin")
-    self.files_by_path["sys/bi2.bin"] = SystemFile(0x440, 0x2000, "bi2.bin")
+    self.files_by_path["sys/boot.bin"] = GCMSystemFile(0, 0x440, "boot.bin")
+    self.files_by_path["sys/bi2.bin"] = GCMSystemFile(0x440, 0x2000, "bi2.bin")
     
     apploader_header_size = 0x20
     apploader_size = fs.read_u32(self.iso_file, 0x2440 + 0x14)
     apploader_trailer_size = fs.read_u32(self.iso_file, 0x2440 + 0x18)
     apploader_full_size = apploader_header_size + apploader_size + apploader_trailer_size
-    self.files_by_path["sys/apploader.img"] = SystemFile(0x2440, apploader_full_size, "apploader.img")
+    self.files_by_path["sys/apploader.img"] = GCMSystemFile(0x2440, apploader_full_size, "apploader.img")
     
     dol_offset = fs.read_u32(self.iso_file, 0x420)
     main_dol_size = 0
@@ -96,9 +97,9 @@ class GCM:
       section_end_offset = section_offset + section_size
       if section_end_offset > main_dol_size:
         main_dol_size = section_end_offset
-    self.files_by_path["sys/main.dol"] = SystemFile(dol_offset, main_dol_size, "main.dol")
+    self.files_by_path["sys/main.dol"] = GCMSystemFile(dol_offset, main_dol_size, "main.dol")
     
-    self.files_by_path["sys/fst.bin"] = SystemFile(self.fst_offset, self.fst_size, "fst.bin")
+    self.files_by_path["sys/fst.bin"] = GCMSystemFile(self.fst_offset, self.fst_size, "fst.bin")
     
     self.system_files = [
       self.files_by_path["sys/boot.bin"],
@@ -577,13 +578,23 @@ class GCM:
       files_done += 1
       yield(file_entry.file_path, files_done)
 
-class GCMFileEntry:
+class GCMBaseFile:
   def __init__(self):
     self.file_index = None
+    
+    self.file_data_offset = None
+    self.file_size = None
+    
+    self.name = None
+    self.file_path = None
     
     self.is_dir = False
     self.is_system_file = False
   
+  def read(self, file_index, iso_file, file_entry_offset, fnt_offset):
+    pass
+
+class GCMFileEntry(GCMBaseFile):
   def read(self, file_index, iso_file, file_entry_offset, fnt_offset):
     self.file_index = file_index
     
@@ -609,13 +620,14 @@ class GCMFileEntry:
     else:
       self.name = fs.read_str_until_null_character(iso_file, fnt_offset + self.name_offset)
 
-class SystemFile:
+class GCMSystemFile(GCMBaseFile):
   def __init__(self, file_data_offset, file_size, name):
+    super().__init__()
+    
     self.file_data_offset = file_data_offset
     self.file_size = file_size
     
     self.name = name
     self.file_path = "sys/" + name
     
-    self.is_dir = False
     self.is_system_file = True
