@@ -1,4 +1,3 @@
-
 from typing import Optional
 from io import BytesIO
 import os
@@ -7,7 +6,6 @@ import glob
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
 from gclib.jpa_enums import JPACVersion
-from gclib.jpa_chunks import CHUNK_TYPES
 from gclib.jpa_chunks.bsp1 import BSP1
 from gclib.jpa_chunks.ssp1 import SSP1
 from gclib.jpa_chunks.tdb1 import TDB1
@@ -226,6 +224,14 @@ class JParticle:
   # kfa1: list[KFA1]
   tdb1: Optional[TDB1]
   
+  CHUNK_TYPES = {
+    chunk_class.__name__: chunk_class
+    for chunk_class in [
+      chunk_class.__args__[0] if chunk_class.__name__ == "Optional" else chunk_class
+      for chunk_class in __annotations__.values()
+    ]
+  }
+  
   def __init__(self, jpc_data, particle_offset, jpac_version: JPACVersion):
     self.version = jpac_version
     self.num_textures = None # TODO
@@ -270,7 +276,7 @@ class JParticle:
     chunk_offset = particle_offset + PARTICLE_HEADER_SIZE[self.version]
     for chunk_index in range(0, self.num_chunks):
       chunk_magic = fs.read_str(jpc_data, chunk_offset, 4)
-      chunk_class = CHUNK_TYPES.get(chunk_magic, JPAChunk)
+      chunk_class = self.CHUNK_TYPES.get(chunk_magic, JPAChunk)
       
       size = fs.read_u32(jpc_data, chunk_offset+4)
       chunk_data = fs.read_sub_data(jpc_data, chunk_offset, size)
@@ -280,7 +286,7 @@ class JParticle:
       self.chunks.append(chunk)
       self.chunk_by_type[chunk.magic] = chunk
       
-      if chunk.magic in CHUNK_TYPES:
+      if chunk.magic in self.CHUNK_TYPES:
         setattr(self, chunk.magic.lower(), chunk)
       
       chunk_offset += chunk.size
@@ -294,7 +300,7 @@ class JParticle:
   
   def verify_valid_chunks(self):
     class_attrs = type(self).__annotations__
-    for chunk_magic, chunk_class in CHUNK_TYPES.items():
+    for chunk_magic, chunk_class in self.CHUNK_TYPES.items():
       chunk_attr = chunk_magic.lower()
       if chunk_attr in class_attrs:
         if class_attrs[chunk_attr] == chunk_class:

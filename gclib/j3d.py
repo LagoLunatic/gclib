@@ -1,9 +1,7 @@
-
 from typing import Optional
 from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk
-from gclib.j3d_chunks import CHUNK_TYPES
 from gclib.j3d_chunks.inf1 import INF1
 from gclib.j3d_chunks.vtx1 import VTX1
 from gclib.j3d_chunks.evp1 import EVP1
@@ -31,6 +29,14 @@ class J3D(GCLibFile):
   mdl3: Optional[MDL3]
   trk1: Optional[TRK1]
   ttk1: Optional[TTK1]
+  
+  CHUNK_TYPES = {
+    chunk_class.__name__: chunk_class
+    for chunk_class in [
+      chunk_class.__args__[0] if chunk_class.__name__ == "Optional" else chunk_class
+      for chunk_class in __annotations__.values()
+    ]
+  }
   
   def __init__(self, flexible_data = None):
     super().__init__(flexible_data)
@@ -80,7 +86,7 @@ class J3D(GCLibFile):
         break
       
       chunk_magic = fs.read_str(data, offset, 4)
-      chunk_class = CHUNK_TYPES.get(chunk_magic, JChunk)
+      chunk_class = self.CHUNK_TYPES.get(chunk_magic, JChunk)
       
       size = fs.read_u32(data, offset+4)
       chunk_data = fs.read_sub_data(data, offset, size)
@@ -90,7 +96,7 @@ class J3D(GCLibFile):
       self.chunks.append(chunk)
       self.chunk_by_type[chunk.magic] = chunk
       
-      if chunk.magic in CHUNK_TYPES:
+      if chunk.magic in self.CHUNK_TYPES:
         setattr(self, chunk.magic.lower(), chunk)
       
       offset += chunk.size
@@ -99,10 +105,10 @@ class J3D(GCLibFile):
   
   def verify_valid_chunks(self):
     class_attrs = type(self).__annotations__
-    for chunk_magic, chunk_class in CHUNK_TYPES.items():
+    for chunk_magic, chunk_class in self.CHUNK_TYPES.items():
       chunk_attr = chunk_magic.lower()
       if chunk_attr in class_attrs:
-        if class_attrs[chunk_attr] == chunk_class:
+        if class_attrs[chunk_attr].__name__ != "Optional":
           assert getattr(self, chunk_attr) is not None
   
   def save(self, only_chunks:set=None):
