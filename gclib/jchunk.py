@@ -19,7 +19,9 @@ class JChunk(BUNFOE):
   def read_chunk_specific_data(self):
     pass
   
-  def save(self):
+  def save(self, offset=0):
+    super().save(offset)
+    
     self.save_chunk_specific_data()
     
     # Pad the size of this chunk.
@@ -85,7 +87,10 @@ class JChunk(BUNFOE):
     
     return string_table_offset+next_string_data_offset
 
+@bunfoe(eq=False)
 class JPAChunk(JChunk):
+  version: JPACVersion = field(default=None, repr=False, compare=True, kw_only=False, ignore=True)
+  
   def __init__(self, data, version: JPACVersion):
     super().__init__(data)
     self.version = version

@@ -2,64 +2,64 @@
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
 from gclib.jpa_enums import JPACVersion
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
+from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16
 
 class SSP1(JPAChunk):
-  def read_chunk_specific_data(self):
-    if self.version == JPACVersion.JPAC1_00:
-      self.read_chunk_specific_data_jpc100()
-    elif self.version == JPACVersion.JPAC2_10:
-      self.read_chunk_specific_data_jpc210()
+  def __new__(cls, data, version: JPACVersion):
+    if cls != SSP1:
+      return super().__new__(cls)
+    if version == JPACVersion.JPAC1_00:
+      return SSP1_JPC100(data, version)
+    elif version == JPACVersion.JPAC2_10:
+      return SSP1_JPC210(data, version)
+    return super().__new__(cls)
+
+@bunfoe
+class SSP1_JPC100(SSP1): # JPASweepShape
+  DATA_SIZE = 0x50
   
-  def save_chunk_specific_data(self):
-    if self.version == JPACVersion.JPAC1_00:
-      self.save_chunk_specific_data_jpc100()
-    elif self.version == JPACVersion.JPAC2_10:
-      self.save_chunk_specific_data_jpc210()
-    
-  def read_chunk_specific_data_jpc100(self):
-    r = fs.read_u8(self.data, 0xC + 0x3C)
-    g = fs.read_u8(self.data, 0xC + 0x3D)
-    b = fs.read_u8(self.data, 0xC + 0x3E)
-    a = fs.read_u8(self.data, 0xC + 0x3F)
-    self.color_prm = (r, g, b, a)
-    r = fs.read_u8(self.data, 0xC + 0x40)
-    g = fs.read_u8(self.data, 0xC + 0x41)
-    b = fs.read_u8(self.data, 0xC + 0x42)
-    a = fs.read_u8(self.data, 0xC + 0x43)
-    self.color_env = (r, g, b, a)
+  flags: u32
+  position_random: float
+  base_velocity: float
+  base_velocity_random: float
+  velocity_inf_rate: float
+  gravity: float
+  timing: float
+  lifetime: s16
+  rate: s16
+  step: u8
+  _padding_1: u24
+  scale: Vec2float
+  rotate_speed: float
+  inherit_scale: float
+  inherit_alpha: float
+  inherit_rgb: float
+  color_prm: RGBAu8
+  color_env: RGBAu8
+  texture_index: u8
+  _padding_2: u24
+
+@bunfoe
+class SSP1_JPC210(SSP1): # JPAChildShape
+  DATA_SIZE = 0x48
   
-  def read_chunk_specific_data_jpc210(self):
-    r = fs.read_u8(self.data, 0x34)
-    g = fs.read_u8(self.data, 0x35)
-    b = fs.read_u8(self.data, 0x36)
-    a = fs.read_u8(self.data, 0x37)
-    self.color_prm = (r, g, b, a)
-    r = fs.read_u8(self.data, 0x38)
-    g = fs.read_u8(self.data, 0x39)
-    b = fs.read_u8(self.data, 0x3A)
-    a = fs.read_u8(self.data, 0x3B)
-    self.color_env = (r, g, b, a)
-    
-  def save_chunk_specific_data_jpc100(self):
-    r, g, b, a = self.color_prm
-    fs.write_u8(self.data, 0xC + 0x3C, r)
-    fs.write_u8(self.data, 0xC + 0x3D, g)
-    fs.write_u8(self.data, 0xC + 0x3E, b)
-    fs.write_u8(self.data, 0xC + 0x3F, a)
-    r, g, b, a = self.color_env
-    fs.write_u8(self.data, 0xC + 0x40, r)
-    fs.write_u8(self.data, 0xC + 0x41, g)
-    fs.write_u8(self.data, 0xC + 0x42, b)
-    fs.write_u8(self.data, 0xC + 0x43, a)
-  
-  def save_chunk_specific_data_jpc210(self):
-    r, g, b, a = self.color_prm
-    fs.write_u8(self.data, 0x34, r)
-    fs.write_u8(self.data, 0x35, g)
-    fs.write_u8(self.data, 0x36, b)
-    fs.write_u8(self.data, 0x37, a)
-    r, g, b, a = self.color_env
-    fs.write_u8(self.data, 0x38, r)
-    fs.write_u8(self.data, 0x39, g)
-    fs.write_u8(self.data, 0x3A, b)
-    fs.write_u8(self.data, 0x3B, a)
+  flags: u32
+  position_random: float
+  base_velocity: float
+  base_velocity_random: float
+  velocity_inf_rate: float
+  gravity: float
+  scale: Vec2float
+  inherit_scale: float
+  inherit_alpha: float
+  inherit_rgb: float
+  color_prm: RGBAu8
+  color_env: RGBAu8
+  timing: float
+  lifetime: s16
+  rate: s16
+  step: u8
+  texture_index: u8
+  rotate_speed: s16
