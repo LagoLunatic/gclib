@@ -12,6 +12,7 @@ __all__ = [
   "gx_enums",
   "jchunk",
   "j3d",
+  "jpa_enums",
   "jpc",
   "rarc",
   "rel",

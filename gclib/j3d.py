@@ -71,7 +71,7 @@ class J3D(GCLibFile):
       self.bck_sound_data = None
     
     self.chunks: list[JChunk] = []
-    self.chunk_by_type = {}
+    self.chunk_by_type: dict[str, JChunk] = {}
     offset = 0x20
     for chunk_index in range(self.num_chunks):
       if offset == fs.data_len(data):

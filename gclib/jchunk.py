@@ -2,6 +2,7 @@
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import bunfoe, field, BUNFOE
+from gclib.jpa_enums import JPACVersion
 
 # Set eq=False because we don't want to consider chunks equal just because they have the same type
 # and size. (e.g. JPC textures are each their own TEX1 chunk.)
@@ -83,3 +84,19 @@ class JChunk(BUNFOE):
       next_string_data_offset += len(string) + 1
     
     return string_table_offset+next_string_data_offset
+
+class JPAChunk(JChunk):
+  def __init__(self, data, version: JPACVersion):
+    super().__init__(data)
+    self.version = version
+  
+  @property
+  def padding_alignment_size(self) -> int:
+    if self.version == JPACVersion.JPAC1_00:
+      return 0x20
+    elif self.version == JPACVersion.JPAC2_10:
+      return 0x4
+  
+  @property
+  def padding_bytes(self) -> bytes:
+    return b'\0'
