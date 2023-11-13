@@ -402,9 +402,7 @@ def get_color_distance_fast(color_1, color_2):
 
 
 # Generates a palette with a certain number of colors or less based on an image (color quantization).
-def create_limited_palette_from_image(image, max_colors, with_alpha=True):
-  pixels = image.load()
-  
+def create_limited_palette_from_images(images, max_colors, with_alpha=True):
   # (2**depth) will be max_colors.
   if max_colors == 16:
     depth = 4
@@ -417,19 +415,22 @@ def create_limited_palette_from_image(image, max_colors, with_alpha=True):
   
   all_pixel_colors = []
   already_have_zero_alpha_color = False
-  for y in range(0, image.height):
-    for x in range(0, image.width):
-      color = pixels[x, y]
-      
-      if not with_alpha:
-        color = (color[0], color[1], color[2], 255)
-      elif color[3] == 0:
-        # Avoid putting multiple colors with 0 alpha into the list since they are identical.
-        if already_have_zero_alpha_color:
-          continue
-        already_have_zero_alpha_color = True
-      
-      all_pixel_colors.append(color)
+  
+  for image in images:
+    pixels = image.load()
+    for y in range(0, image.height):
+      for x in range(0, image.width):
+        color = pixels[x, y]
+        
+        if not with_alpha:
+          color = (color[0], color[1], color[2], 255)
+        elif color[3] == 0:
+          # Avoid putting multiple colors with 0 alpha into the list since they are identical.
+          if already_have_zero_alpha_color:
+            continue
+          already_have_zero_alpha_color = True
+        
+        all_pixel_colors.append(color)
   
   palette = split_colors_into_buckets(all_pixel_colors, depth)
   
@@ -507,22 +508,24 @@ def decode_color(raw_color, palette_format):
   
   return color
 
-def generate_new_palettes_from_image(image, image_format, palette_format):
+def generate_new_palettes_from_images(images: list[Image.Image], image_format, palette_format):
   if image_format not in IMAGE_FORMATS_THAT_USE_PALETTES:
     return ([],{})
   
-  pixels = image.load()
-  width, height = image.size
   encoded_colors = []
   colors_to_color_indexes = {}
-  for y in range(height):
-    for x in range(width):
-      color = pixels[x,y]
-      encoded_color = encode_color(color, palette_format)
-      if encoded_color not in encoded_colors:
-        encoded_colors.append(encoded_color)
-      if color not in colors_to_color_indexes:
-        colors_to_color_indexes[color] = encoded_colors.index(encoded_color)
+  
+  for image in images:
+    pixels = image.load()
+    width, height = image.size
+    for y in range(height):
+      for x in range(width):
+        color = pixels[x,y]
+        encoded_color = encode_color(color, palette_format)
+        if encoded_color not in encoded_colors:
+          encoded_colors.append(encoded_color)
+        if color not in colors_to_color_indexes:
+          colors_to_color_indexes[color] = encoded_colors.index(encoded_color)
   
   if len(encoded_colors) > MAX_COLORS_FOR_IMAGE_FORMAT[image_format]:
     # If the image has more colors than the selected image format can support, we automatically reduce the number of colors.
@@ -532,7 +535,7 @@ def generate_new_palettes_from_image(image, image_format, palette_format):
     assert image_format == ImageFormat.C14X2
     
     with_alpha = (palette_format in PALETTE_FORMATS_WITH_ALPHA)
-    limited_palette = create_limited_palette_from_image(image, MAX_COLORS_FOR_IMAGE_FORMAT[image_format], with_alpha=with_alpha)
+    limited_palette = create_limited_palette_from_images(images, MAX_COLORS_FOR_IMAGE_FORMAT[image_format], with_alpha=with_alpha)
     
     encoded_colors = []
     colors_to_color_indexes = {}
@@ -825,7 +828,7 @@ def encode_image(image, image_format, palette_format, mipmap_count=1):
       image = image.quantize(max_colors)
       image = image.convert("RGBA")
   
-  encoded_colors, colors_to_color_indexes = generate_new_palettes_from_image(image, image_format, palette_format)
+  encoded_colors, colors_to_color_indexes = generate_new_palettes_from_images([image], image_format, palette_format)
   
   new_image_data = BytesIO()
   mipmap_image = image

@@ -74,6 +74,12 @@ class RGBA(RGB):
     self.r, self.g, self.b, self.a = value
 
 @bunfoe
+class RGBu8(RGBA):
+  r: u8 = 0
+  g: u8 = 0
+  b: u8 = 0
+
+@bunfoe
 class RGBAu8(RGBA):
   r: u8 = 0
   g: u8 = 0

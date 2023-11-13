@@ -20,19 +20,12 @@ class BTI(GCLibFile):
     
     self.read_header(self.data, header_offset=header_offset)
     
-    blocks_wide = (self.width + (self.block_width-1)) // self.block_width
-    blocks_tall = (self.height + (self.block_height-1)) // self.block_height
-    image_data_size = blocks_wide*blocks_tall*self.block_data_size
-    remaining_mipmaps = self.mipmap_count-1
-    curr_mipmap_size = image_data_size
-    while remaining_mipmaps > 0:
-      # Each mipmap is a quarter the size of the last (half the width and half the height).
-      curr_mipmap_size = curr_mipmap_size//4
-      image_data_size += curr_mipmap_size
-      remaining_mipmaps -= 1
-      # Note: We don't actually read the smaller mipmaps, we only read the normal sized one, and when saving recalculate the others by scaling the normal one down.
-      # This is to simplify things, but a full implementation would allow reading and saving each mipmap individually (since the mipmaps can actually have different contents).
-    self.image_data = BytesIO(fs.read_bytes(self.data, header_offset+self.image_data_offset, image_data_size))
+    assert self.mipmap_count > 0, "Mipmap count must not be zero"
+    
+    # The size of all mipmap image data combined is equal to the offset of the next mipmap after the last one.
+    image_data_total_size, _, _, _ = self.get_mipmap_offset_and_size(self.mipmap_count)
+    
+    self.image_data = BytesIO(fs.read_bytes(self.data, header_offset+self.image_data_offset, image_data_total_size))
     
     palette_data_size = self.num_colors*2
     self.palette_data = BytesIO(fs.read_bytes(self.data, header_offset+self.palette_data_offset, palette_data_size))
@@ -56,7 +49,7 @@ class BTI(GCLibFile):
     self.mag_filter = FilterMode(fs.read_u8(data, header_offset+0x15))
     
     self.min_lod = fs.read_u8(data, header_offset+0x16)
-    self.max_lod = fs.read_u8(data, header_offset+0x17) # seems to be equal to (mipmap_count-1)*8
+    self.max_lod = fs.read_u8(data, header_offset+0x17)
     self.mipmap_count = fs.read_u8(data, header_offset+0x18)
     self.unknown_3 = fs.read_u8(data, header_offset+0x19)
     self.lod_bias = fs.read_u16(data, header_offset+0x1A)
@@ -82,6 +75,8 @@ class BTI(GCLibFile):
     fs.write_u8(self.data, self.header_offset+0x14, self.min_filter.value)
     fs.write_u8(self.data, self.header_offset+0x15, self.mag_filter.value)
     
+    assert self.mipmap_count <= self.get_max_valid_mipmap_count()
+    self.max_lod = (self.mipmap_count-1)*8
     fs.write_u8(self.data, self.header_offset+0x16, self.min_lod)
     fs.write_u8(self.data, self.header_offset+0x17, self.max_lod)
     fs.write_u8(self.data, self.header_offset+0x18, self.mipmap_count)
@@ -131,12 +126,52 @@ class BTI(GCLibFile):
     else:
       return self.image_format in GREYSCALE_IMAGE_FORMATS
   
+  @staticmethod
+  def round_to_block(num, block_size):
+    return (num + (block_size-1)) // block_size
+  
+  def get_mipmap_offset_and_size(self, mipmap_index):
+    blocks_wide = self.round_to_block(self.width, self.block_width)
+    blocks_tall = self.round_to_block(self.height, self.block_height)
+    curr_mipmap_size = blocks_wide*blocks_tall*self.block_data_size
+    remaining_mipmaps = mipmap_index
+    image_data_offset = 0
+    width = self.width
+    height = self.height
+    while remaining_mipmaps > 0:
+      image_data_offset += curr_mipmap_size
+      width //= 2
+      height //= 2
+      blocks_wide = self.round_to_block(width, self.block_width)
+      blocks_tall = self.round_to_block(height, self.block_height)
+      curr_mipmap_size = blocks_wide*blocks_tall*self.block_data_size
+      remaining_mipmaps -= 1
+    return image_data_offset, curr_mipmap_size, width, height
+  
+  def get_max_valid_mipmap_count(self):
+    mipmap_index = 0
+    width = self.width
+    height = self.height
+    for i in range(0xFF+1):
+      width //= 2
+      height //= 2
+      if width <= 0 or height <= 0:
+        break
+      mipmap_index += 1
+    return mipmap_index
+  
   def render(self):
+    return self.render_mipmap(0)
+  
+  def render_mipmap(self, mipmap_index):
+    image_data_offset, curr_mipmap_size, width, height = self.get_mipmap_offset_and_size(mipmap_index)
+    image_data = fs.read_sub_data(self.image_data, image_data_offset, curr_mipmap_size)
+    
     image = texture_utils.decode_image(
-      self.image_data, self.palette_data,
+      image_data, self.palette_data,
       self.image_format, self.palette_format,
       self.num_colors,
-      self.width, self.height
+      width, height
     )
     return image
   
@@ -162,6 +197,28 @@ class BTI(GCLibFile):
     self.num_colors = len(encoded_colors)
     self.width = new_image.width
     self.height = new_image.height
+  
+  def replace_mipmap(self, mipmap_index, new_image):
+    image_data_offset, curr_mipmap_size, width, height = self.get_mipmap_offset_and_size(mipmap_index)
+    
+    images = []
+    for other_mipmap_index in range(self.mipmap_count):
+      if other_mipmap_index == mipmap_index:
+        images.append(new_image)
+      else:
+        images.append(self.render_mipmap(other_mipmap_index))
+    
+    encoded_colors, colors_to_color_indexes = texture_utils.generate_new_palettes_from_images(images, self.image_format, self.palette_format)
+    
+    mipmap_image_data = texture_utils.encode_mipmap_image(
+      new_image, self.image_format,
+      colors_to_color_indexes,
+      width, height
+    )
+    assert fs.data_len(mipmap_image_data) == curr_mipmap_size
+    fs.write_bytes(self.image_data, image_data_offset, fs.read_all_bytes(mipmap_image_data))
+    self.palette_data = texture_utils.encode_palette(encoded_colors, self.palette_format, self.image_format)
+    self.num_colors = len(encoded_colors)
   
   def replace_palette(self, new_colors):
     encoded_colors = texture_utils.generate_new_palettes_from_colors(new_colors, self.palette_format)
