@@ -98,6 +98,8 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
     raise ValueError('cannot specify both length and length_calculator')
   if bitfield and bits is not None:
     raise ValueError('cannot specify both bitfield and bits')
+  if bitfield and default == UNREAD:
+    default = 0
   return Field(default, default_factory, init, repr, hash, compare,
                metadata, kw_only, length, length_calculator, ignore, bitfield, bits, assert_default)
 
