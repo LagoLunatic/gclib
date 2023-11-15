@@ -136,6 +136,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
   
   return cls
 
+@typing.dataclass_transform(kw_only_default=True, field_specifiers=(field,))
 def bunfoe(cls=None, /, *,
            # Dataclass arguments. Most defaults are left the same, but kw_only is changed from False
            # to True in order to make normal fields keyword arguments by default.
