@@ -103,18 +103,18 @@ class TexMtxMapMode(u8, Enum):
 class TexMatrix(BUNFOE):
   DATA_SIZE = 0x64
   
-  projection   : TexMtxProjection
-  bitfield_1   : u8            = field(bitfield=True)
-  map_mode     : TexMtxMapMode = field(bits=6)
-  unknown_1    : bool          = field(bits=1) # TODO padding? maybe should assert_default=0
-  is_maya      : bool          = field(bits=1)
-  _padding_1   : u16 = 0xFFFF
-  center       : Vec3float
-  scale        : Vec2float
-  rotation     : u16Rot
-  _padding_2   : u16 = 0xFFFF
-  translation  : Vec2float
-  effect_matrix: Matrix4x4
+  projection   : TexMtxProjection = TexMtxProjection.MTX2x4
+  bitfield_1   : u8               = field(bitfield=True)
+  map_mode     : TexMtxMapMode    = field(bits=6, default=TexMtxMapMode.None_)
+  unknown_1    : bool             = field(bits=1, default=False, assert_default=True)
+  is_maya      : bool             = field(bits=1, default=False)
+  _padding_1   : u16              = 0xFFFF
+  center       : Vec3float        = field(default_factory=lambda: Vec3float(x=0.5, y=0.5, z=0.0))
+  scale        : Vec2float        = field(default_factory=lambda: Vec2float(x=1.0, y=1.0))
+  rotation     : u16Rot           = 0
+  _padding_2   : u16              = 0xFFFF
+  translation  : Vec2float        = field(default_factory=Vec2float)
+  effect_matrix: Matrix4x4        = field(default_factory=Matrix4x4)
 
 @bunfoe
 class TevSwapMode(BUNFOE):
@@ -133,7 +133,8 @@ class TevSwapModeTable(BUNFOE):
 class FogInfo(BUNFOE):
   DATA_SIZE = 0x2C
   
-  type_            : u8
+  fog_type         : GX.FogType
+  # TODO: fog_type & 0x08 may be projection? need to find an example of orthographic fog...
   enable           : bool
   center           : u16
   start_z          : float

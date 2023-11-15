@@ -246,7 +246,7 @@ class IndTexWrap(u8, Enum):
   _16  = 5
   _0   = 6
 
-class ColorChannelID (u8, Enum):
+class ColorChannelID(u8, Enum):
   COLOR0       = 0x00
   COLOR1       = 0x01
   ALPHA0       = 0x02
@@ -442,6 +442,18 @@ class KonstAlphaSel(u8, Enum):
   K1_A   = 0x1D # K1[A] register
   K2_A   = 0x1E # K2[A] register
   K3_A   = 0x1F # K3[A] register
+
+class FogProjection(Enum):
+  PERSPECTIVE  = 0x00
+  ORTHOGRAPHIC = 0x01
+
+class FogType(u8, Enum):
+  OFF     = 0x00
+  LINEAR  = 0x02
+  EXP     = 0x04
+  EXP2    = 0x05
+  REVEXP  = 0x06
+  REVEXP2 = 0x07
 
 class MDLCommandType(u8, Enum):
   END_MARKER = 0x00
