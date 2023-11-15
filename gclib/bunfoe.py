@@ -327,7 +327,14 @@ class BUNFOE:
       # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
       if raw_value not in [0, 1]:
         print(f"Boolean should be zero or one, but got value: {raw_value}")
-    value = field_type(raw_value)
+    
+    if issubclass(field_type, int) or issubclass(field_type, Enum) or issubclass(field_type, bool):
+      value = field_type(raw_value)
+    elif issubclass(field_type, float):
+      value = field_type(fs.bit_cast_int_to_float(raw_value))
+    else:
+      raise NotImplementedError(f"Reading type {field_type} from a bitfield is not currently implemented")
+    
     return value
   
   def read_value(self, field_type: Type[T], offset: int) -> T:
@@ -456,9 +463,18 @@ class BUNFOE:
     bitfield_value &= ~bit_mask
     
     if issubclass(field_type, Enum):
-      raw_value = value.value
-    else:
+      if isinstance(value, field_type):
+        raw_value = value.value
+      elif isinstance(value, int):
+        raw_value = value
+      else:
+        raise TypeError(f"Invalid value {repr(value)}, expected to have type {field_type} but was {type(value)} instead.")
+    elif issubclass(field_type, int) or issubclass(field_type, bool):
       raw_value = int(value) # TODO: use field_type?
+    elif issubclass(field_type, float):
+      raw_value = fs.bit_cast_float_to_int(value)
+    else:
+      raise NotImplementedError(f"Writing type {field_type} to a bitfield is not currently implemented")
     bitfield_value |= (raw_value << bit_offset) & bit_mask
     setattr(self, bitfield.name, bitfield_value)
   
