@@ -1,5 +1,5 @@
 import dataclasses
-from dataclasses import MISSING
+from dataclasses import MISSING, InitVar
 from enum import Enum
 from typing import BinaryIO, ClassVar, Self, Type, TypeVar
 from types import GenericAlias

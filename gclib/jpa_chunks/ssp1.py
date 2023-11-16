@@ -3,7 +3,7 @@ from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
 from gclib.jpa_enums import JPACVersion
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
+from gclib.bunfoe import BUNFOE, bunfoe, field
 from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16
 
 class SSP1(JPAChunk):

@@ -1,165 +1,21 @@
 from enum import Enum
 from io import BytesIO
-from typing import BinaryIO, ClassVar
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
-from gclib.bunfoe import BUNFOE, Field, bunfoe, field, fields
+from gclib.bunfoe import BUNFOE, bunfoe, field
 from gclib.jchunk import JChunk
-from gclib.texture_utils import ImageFormat
 import gclib.gx_enums as GX
 from gclib.gx_enums import MDLCommandType, BPRegister, XFRegister
-
-class MDLCommand(BUNFOE):
-  VALID_REGISTERS: ClassVar[list[Enum]] = []
-  
-  @classmethod
-  def new_from_register(cls, register: Enum, data: BinaryIO):
-    # When instantiating the base class, try to find if any subclasses are for this register.
-    for subcls in cls.__subclasses__():
-      if register in subcls.VALID_REGISTERS:
-        return subcls(data)
-    # If not, just return a generic version of the command that holds a bitfield.
-    return cls(data)
-  
-  def assert_valid(self):
-    raise NotImplementedError
-  
-  def read(self, offset: int) -> int:
-    offset = super().read(offset)
-    self.assert_valid()
-    return offset
-  
-  def save(self, offset: int) -> int:
-    self.assert_valid()
-    return super().save(offset)
-
-@bunfoe
-class BPCommand(MDLCommand):
-  type: MDLCommandType = field(default=MDLCommandType.BP, assert_default=True) # TODO hide from GUI
-  register: BPRegister # TODO read only # TODO hide from gui
-  bitfield: u24 = field(bitfield=True)
-  
-  DATA_SIZE = 5
-  VALID_REGISTERS: ClassVar[list[BPRegister]] = []
-  
-  def assert_valid(self):
-    assert self.type == MDLCommandType.BP
-    if self.__class__ is not BPCommand:
-      assert self.register in self.VALID_REGISTERS
-
-@bunfoe
-class XFCommand(MDLCommand):
-  type: MDLCommandType = field(default=MDLCommandType.XF, assert_default=True) # TODO hide from GUI
-  num_args_minus_1: u16
-  register: XFRegister # TODO read only # TODO hide from gui
-  args: list[u32] = field(length_calculator=lambda inst: inst.num_args_minus_1 + 1)
-  
-  VALID_REGISTERS: ClassVar[list[XFRegister]] = []
-  
-  def assert_valid(self):
-    assert self.type == MDLCommandType.XF
-    if self.__class__ is not XFCommand:
-      assert self.register in self.VALID_REGISTERS
-
-@bunfoe
-class TX_SETIMAGE(BPCommand):
-  width_minus_1 : u16         = field(bits=10)
-  height_minus_1: u16         = field(bits=10)
-  format        : ImageFormat = field(bits=4)
-  
-  VALID_REGISTERS = [
-    BPRegister.TX_SETIMAGE0_I0, BPRegister.TX_SETIMAGE0_I1, BPRegister.TX_SETIMAGE0_I2, BPRegister.TX_SETIMAGE0_I3,
-    BPRegister.TX_SETIMAGE0_I4, BPRegister.TX_SETIMAGE0_I5, BPRegister.TX_SETIMAGE0_I6, BPRegister.TX_SETIMAGE0_I7,
-    BPRegister.TX_SETIMAGE1_I0, BPRegister.TX_SETIMAGE1_I1, BPRegister.TX_SETIMAGE1_I2, BPRegister.TX_SETIMAGE1_I3,
-    BPRegister.TX_SETIMAGE1_I4, BPRegister.TX_SETIMAGE1_I5, BPRegister.TX_SETIMAGE1_I6, BPRegister.TX_SETIMAGE1_I7,
-    BPRegister.TX_SETIMAGE2_I0, BPRegister.TX_SETIMAGE2_I1, BPRegister.TX_SETIMAGE2_I2, BPRegister.TX_SETIMAGE2_I3,
-    BPRegister.TX_SETIMAGE2_I4, BPRegister.TX_SETIMAGE2_I5, BPRegister.TX_SETIMAGE2_I6, BPRegister.TX_SETIMAGE2_I7,
-    BPRegister.TX_SETIMAGE3_I0, BPRegister.TX_SETIMAGE3_I1, BPRegister.TX_SETIMAGE3_I2, BPRegister.TX_SETIMAGE3_I3,
-    BPRegister.TX_SETIMAGE3_I4, BPRegister.TX_SETIMAGE3_I5, BPRegister.TX_SETIMAGE3_I6, BPRegister.TX_SETIMAGE3_I7,
-  ]
-
-@bunfoe
-class TX_SETMODE(BPCommand):
-  wrap_s    : GX.WrapMode = field(bits=2)
-  wrap_t    : GX.WrapMode = field(bits=2)
-  mag_filter: u8          = field(bits=1)
-  min_filter: u8          = field(bits=3)
-  diag_lod  : bool        = field(bits=1)
-  lod_bias  : u8          = field(bits=8)
-  unknown   : u8          = field(bits=2)
-  max_aniso : u8          = field(bits=2)
-  lod_clamp : bool        = field(bits=1)
-  
-  VALID_REGISTERS = [
-    BPRegister.TX_SETMODE0_I0, BPRegister.TX_SETMODE0_I1, BPRegister.TX_SETMODE0_I2, BPRegister.TX_SETMODE0_I3,
-    BPRegister.TX_SETMODE0_I4, BPRegister.TX_SETMODE0_I5, BPRegister.TX_SETMODE0_I6, BPRegister.TX_SETMODE0_I7,
-    BPRegister.TX_SETMODE1_I0, BPRegister.TX_SETMODE1_I1, BPRegister.TX_SETMODE1_I2, BPRegister.TX_SETMODE1_I3,
-    BPRegister.TX_SETMODE1_I4, BPRegister.TX_SETMODE1_I5, BPRegister.TX_SETMODE1_I6, BPRegister.TX_SETMODE1_I7,
-  ]
-
-@bunfoe
-class SU_SSIZE(BPCommand):
-  width_minus_1: u16  = field(bits=16)
-  unknown      : bool = field(bits=1)
-  
-  VALID_REGISTERS = [
-    BPRegister.SU_SSIZE0, BPRegister.SU_SSIZE1, BPRegister.SU_SSIZE2, BPRegister.SU_SSIZE3,
-    BPRegister.SU_SSIZE4, BPRegister.SU_SSIZE5, BPRegister.SU_SSIZE6, BPRegister.SU_SSIZE7,
-  ]
-
-@bunfoe
-class SU_TSIZE(BPCommand):
-  height_minus_1: u16  = field(bits=16)
-  unknown       : bool = field(bits=1)
-  
-  VALID_REGISTERS = [
-    BPRegister.SU_TSIZE0, BPRegister.SU_TSIZE1, BPRegister.SU_TSIZE2, BPRegister.SU_TSIZE3,
-    BPRegister.SU_TSIZE4, BPRegister.SU_TSIZE5, BPRegister.SU_TSIZE6, BPRegister.SU_TSIZE7,
-  ]
-
-@bunfoe
-class TEV_REGISTERL(BPCommand):
-  r: u16 = field(bits=11)
-  a: u16 = field(bits=11)
-  
-  VALID_REGISTERS = [
-    BPRegister.TEV_REGISTERL_0, BPRegister.TEV_REGISTERL_1, BPRegister.TEV_REGISTERL_2, BPRegister.TEV_REGISTERL_3,
-  ]
-
-@bunfoe
-class TEV_REGISTERH(BPCommand):
-  b: u16 = field(bits=11)
-  g: u16 = field(bits=11)
-  
-  VALID_REGISTERS = [
-    BPRegister.TEV_REGISTERH_0, BPRegister.TEV_REGISTERH_1, BPRegister.TEV_REGISTERH_2, BPRegister.TEV_REGISTERH_3,
-  ]
-
-@bunfoe
-class PE_ZMODE(BPCommand):
-  depth_test : bool           = field(bits=1)
-  depth_func : GX.CompareType = field(bits=3)
-  depth_write: bool           = field(bits=1)
-  
-  VALID_REGISTERS = [
-    BPRegister.PE_ZMODE,
-  ]
-
-@bunfoe
-class TEXMTX(XFCommand):
-  pass
-  
-  VALID_REGISTERS = [
-    XFRegister.TEXMTX0, XFRegister.TEXMTX1, XFRegister.TEXMTX2, XFRegister.TEXMTX3,
-    XFRegister.TEXMTX4, XFRegister.TEXMTX5, XFRegister.TEXMTX6, XFRegister.TEXMTX7,
-    XFRegister.TEXMTX8, XFRegister.TEXMTX9,
-  ]
+from gclib.j3d_chunks.mat3 import MAT3, Material, TexMatrix, TexMtxProjection
+from gclib.j3d_chunks.tex1 import TEX1
+import gclib.j3d_chunks.bp_command as BP
+import gclib.j3d_chunks.xf_command as XF
 
 @bunfoe
 class MDLEntry(BUNFOE):
-  bp_commands: list[BPCommand] = field(default_factory=list)
-  xf_commands: list[XFCommand] = field(default_factory=list)
+  bp_commands: list[BP.BPCommand] = field(default_factory=list)
+  xf_commands: list[XF.XFCommand] = field(default_factory=list)
   
   def __post_init__(self):
     super().__post_init__()
@@ -185,12 +41,12 @@ class MDLEntry(BUNFOE):
       command_type = fs.read_u8(self.data, offset)
       if command_type == MDLCommandType.BP.value:
         register = BPRegister(fs.read_u8(self.data, offset+1))
-        command = BPCommand.new_from_register(register, self.data)
+        command = BP.BPCommand.new_from_register(register, self.data)
         offset = command.read(offset)
         self.bp_commands.append(command)
       elif command_type == MDLCommandType.XF.value:
         register = XFRegister(fs.read_u16(self.data, offset+3))
-        command = XFCommand.new_from_register(register, self.data)
+        command = XF.XFCommand.new_from_register(register, self.data)
         offset = command.read(offset)
         self.xf_commands.append(command)
       elif command_type == MDLCommandType.END_MARKER.value:
@@ -211,7 +67,7 @@ class MDLEntry(BUNFOE):
     self.pixel_subpacket_offset = None
     
     for command in self.bp_commands:
-      if self.tev_subpacket_offset is None and (isinstance(command, TEV_REGISTERL) or isinstance(command, TEV_REGISTERH)):
+      if self.tev_subpacket_offset is None and (isinstance(command, BP.TEV_REGISTERL) or isinstance(command, BP.TEV_REGISTERH)):
         self.tev_subpacket_offset = offset - orig_offset
       if self.pixel_subpacket_offset is None and command.register in [BPRegister.TEV_FOG_PARAM_0, BPRegister.TEV_FOG_PARAM_1, BPRegister.TEV_FOG_PARAM_2, BPRegister.TEV_FOG_PARAM_3]:
         self.pixel_subpacket_offset = offset - orig_offset
@@ -223,7 +79,7 @@ class MDLEntry(BUNFOE):
         self.chan_color_subpacket_offset = offset - orig_offset
       if self.chan_control_subpacket_offset is None and command.register in [XFRegister.CHAN0_COLOR]:
         self.chan_control_subpacket_offset = offset - orig_offset
-      if self.tex_gen_subpacket_offset is None and (isinstance(command, TEXMTX) or command.register in [XFRegister.TEXMTXINFO]):
+      if self.tex_gen_subpacket_offset is None and (isinstance(command, XF.TEXMTX) or command.register in [XFRegister.TEXMTXINFO]):
         self.tex_gen_subpacket_offset = offset - orig_offset
       
       offset = command.save(offset)
@@ -235,6 +91,488 @@ class MDLEntry(BUNFOE):
       offset += padding_bytes_needed
     
     return offset
+  
+  def generate_from_material(self, mat: Material, tex1: TEX1):
+    self.bp_commands.clear()
+    self.xf_commands.clear()
+    
+    for i, texture_index in enumerate(mat.textures):
+      if texture_index is None:
+        continue
+      tex = tex1.textures[texture_index]
+      self.bp_commands.append(BP.TX_SETIMAGE3(
+        reg_index=i,
+        texture_index=texture_index,
+      ))
+      self.bp_commands.append(BP.TX_SETIMAGE0(
+        reg_index=i,
+        width_minus_1=tex.width-1,
+        height_minus_1=tex.height-1,
+        format=tex.image_format,
+      ))
+      self.bp_commands.append(BP.TX_SETMODE0(
+        reg_index=i,
+        wrap_s=tex.wrap_s, wrap_t=tex.wrap_t,
+        mag_filter=tex.mag_filter, min_filter=BP.MDLFilterMode[tex.min_filter.name],
+        diag_lod=True, lod_bias=0, max_aniso=0, lod_clamp=False, # TODO unimplemented
+      ))
+      self.bp_commands.append(BP.TX_SETMODE1(
+        reg_index=i,
+      ))
+      
+      tex = tex1.textures[texture_index]
+      if not tex.needs_palettes():
+        continue
+      self.bp_commands.append(BP.BP_MASK(
+        register=BPRegister.BP_MASK,
+        mask=0xFFFF00,
+      ))
+      self.bp_commands.append(BP.BPCommand(
+        register=BPRegister.IND_IMASK,
+      ))
+      # https://github.com/dolphin-emu/dolphin/blob/6309aa00109f81a2e9f2281d1fced174eccef8f8/Source/Core/VideoCommon/BPStructs.cpp#L388
+      # src << 5
+      # tmem_addr << 9
+      # tmem_line_count * 32
+      # tmem_offset << 9
+      self.bp_commands.append(BP.TEX_LOADTLUT0(
+        register=BPRegister.TEX_LOADTLUT0,
+        src=0x37983, # TODO
+      ))
+      self.bp_commands.append(BP.TEX_LOADTLUT1(
+        register=BPRegister.TEX_LOADTLUT1,
+        tmem_addr=0x390, tmem_line_count=0x10, # TODO
+        # tmem_addr can sometimes be 0x380
+      ))
+      self.bp_commands.append(BP.BP_MASK(
+        register=BPRegister.BP_MASK,
+        mask=0xFFFF00,
+      ))
+      self.bp_commands.append(BP.BPCommand(
+        register=BPRegister.IND_IMASK,
+      ))
+      self.bp_commands.append(BP.TX_LOADTLUT(
+        reg_index=i,
+        tmem_offset=0x390, format=tex.palette_format, # TODO
+        # tmem_offset can sometimes be 0x380
+      ))
+    
+    ras1_cmd = None
+    cmds_for_order_pair = None
+    either_order_exists = False
+    for i, tev_order in enumerate(mat.tev_orders):
+      if i % 2 == 0:
+        ras1_cmd = BP.RAS1_TREF(
+          reg_index=i//2,
+          tex_map_0=GX.TexMapID.TEXMAP7, tex_map_1=GX.TexMapID.TEXMAP7,
+        )
+        cmds_for_order_pair = []
+        either_order_exists = False
+      
+      if tev_order is None:
+        tex_index = 7
+        tex_width = 1
+        tex_height = 1
+      else:
+        either_order_exists = True
+        # TODO: fn_body model has wrong MDLColorChannelID
+        if i % 2 == 0:
+          ras1_cmd.tex_map_0 = tev_order.tex_map_id
+          ras1_cmd.tex_coord_0 = tev_order.tex_coord_id
+          ras1_cmd.unknown_1_0 = 1
+          ras1_cmd.channel_id_0 = BP.MDLColorChannelID[tev_order.channel_id.name]
+        else:
+          ras1_cmd.tex_map_1 = tev_order.tex_map_id
+          ras1_cmd.tex_coord_1 = tev_order.tex_coord_id
+          ras1_cmd.unknown_1_1 = 1
+          ras1_cmd.channel_id_1 = BP.MDLColorChannelID[tev_order.channel_id.name]
+        
+        tex_index = tev_order.tex_coord_id.value
+        tex = tex1.textures[mat.textures[tex_index]] # TODO unsure
+        tex_width = tex.width
+        tex_height = tex.height
+      
+      cmds_for_order_pair.append(BP.BP_MASK(
+        register=BPRegister.BP_MASK,
+        mask=0x03FFFF,
+      ))
+      cmds_for_order_pair.append(BP.SU_SSIZE(
+        reg_index=tex_index,
+        width_minus_1=tex_width-1,
+      ))
+      cmds_for_order_pair.append(BP.SU_TSIZE(
+        reg_index=tex_index,
+        height_minus_1=tex_height-1,
+      ))
+      
+      if i % 2 == 1 and either_order_exists:
+        self.bp_commands.append(ras1_cmd)
+        self.bp_commands += cmds_for_order_pair
+    
+    for i, color in enumerate(mat.tev_colors):
+      # TODO: what is with this i==3, i+1 stuff?
+      if i == 3:
+        continue
+      self.bp_commands.append(BP.TEV_REGISTERL(
+        reg_index=i+1,
+        r=color.r, a=color.a, is_konst=False,
+      ))
+      self.bp_commands.append(BP.TEV_REGISTERH(
+        reg_index=i+1,
+        g=color.g, b=color.b, is_konst=False,
+      ))
+      self.bp_commands.append(self.bp_commands[-1].copy())
+      self.bp_commands.append(self.bp_commands[-1].copy())
+    
+    for i, color in enumerate(mat.tev_konst_colors):
+      self.bp_commands.append(BP.TEV_REGISTERL(
+        reg_index=i,
+        r=color.r, a=color.a, is_konst=True,
+      ))
+      self.bp_commands.append(BP.TEV_REGISTERH(
+        reg_index=i,
+        g=color.g, b=color.b, is_konst=True,
+      ))
+    
+    for i, (tev_stage, swap_mode) in enumerate(zip(mat.tev_stages, mat.tev_swap_modes)):
+      if tev_stage is None or swap_mode is None:
+        continue
+      self.bp_commands.append(BP.TEV_COLOR_ENV(
+        reg_index=i,
+        color_in_a=tev_stage.color_in_a, color_in_b=tev_stage.color_in_b,
+        color_in_c=tev_stage.color_in_c, color_in_d=tev_stage.color_in_d,
+        color_op=tev_stage.color_op, color_bias=tev_stage.color_bias,
+        color_scale=tev_stage.color_scale, color_clamp=tev_stage.color_clamp,
+        color_reg_id=tev_stage.color_reg_id,
+      ))
+      self.bp_commands.append(BP.TEV_ALPHA_ENV(
+        reg_index=i,
+        alpha_in_a=tev_stage.alpha_in_a, alpha_in_b=tev_stage.alpha_in_b,
+        alpha_in_c=tev_stage.alpha_in_c, alpha_in_d=tev_stage.alpha_in_d,
+        alpha_op=tev_stage.alpha_op, alpha_bias=tev_stage.alpha_bias,
+        alpha_scale=tev_stage.alpha_scale, alpha_clamp=tev_stage.alpha_clamp,
+        alpha_reg_id=tev_stage.alpha_reg_id,
+        ras_sel=swap_mode.ras_sel, tex_sel=swap_mode.tex_sel,
+      ))
+      self.bp_commands.append(BP.IND_CMD(
+        reg_index=i,
+      ))
+    
+    ksel_cmds: list[BP.TEV_KSEL] = []
+    for i, (color_sel, alpha_sel) in enumerate(zip(mat.tev_konst_color_sels, mat.tev_konst_alpha_sels)):
+      if i % 2 == 0:
+        ksel_cmd = BP.TEV_KSEL(reg_index=i//2)
+        ksel_cmd.color_sel_0 = color_sel
+        ksel_cmd.alpha_sel_0 = alpha_sel
+        ksel_cmds.append(ksel_cmd)
+      else:
+        ksel_cmd = ksel_cmds[i//2]
+        ksel_cmd.color_sel_1 = color_sel
+        ksel_cmd.alpha_sel_1 = alpha_sel
+    
+    for i, swap_mode_table in enumerate(mat.tev_swap_mode_tables[:4]):
+      ksel_cmd = ksel_cmds[i*2+0]
+      if swap_mode_table is None:
+        ksel_cmd.r_or_b = 0
+        ksel_cmd.g_or_a = 1
+      else:
+        ksel_cmd.r_or_b = swap_mode_table.r
+        ksel_cmd.g_or_a = swap_mode_table.g
+      self.bp_commands.append(ksel_cmd)
+      ksel_cmd = ksel_cmds[i*2+1]
+      if swap_mode_table is None:
+        ksel_cmd.r_or_b = 2
+        ksel_cmd.g_or_a = 3
+      else:
+        ksel_cmd.r_or_b = swap_mode_table.b
+        ksel_cmd.g_or_a = swap_mode_table.a
+      self.bp_commands.append(ksel_cmd)
+    
+    for i in range(4):
+      # TODO: what's going on here?
+      self.bp_commands.append(BP.BP_MASK(
+        register=BPRegister.BP_MASK,
+        mask=0x03FFFF,
+      ))
+      self.bp_commands.append(BP.RAS1_TREF(
+        reg_index=6,
+      ))
+      self.bp_commands.append(BP.RAS1_TREF(
+        reg_index=7,
+      ))
+    
+    # TODO: what are these?
+    self.bp_commands.append(BP.BPCommand(
+      register=BPRegister.RAS1_IREF,
+      bitfield=0xFFFFFF,
+    ))
+    self.bp_commands.append(BP.BPCommand(
+      register=BPRegister.IND_IMASK,
+    ))
+    
+    # TODO
+    # the exponent for integral_a is wrong because we need to take shift into account?
+    # what is magnitude? C?
+    # or is shift for B?
+    # what is B anyway?
+    # https://github.com/dolphin-emu/dolphin/blob/6309aa00109f81a2e9f2281d1fced174eccef8f8/Source/Core/VideoCommon/BPMemory.h#L1546-L1561
+    # https://github.com/dolphin-emu/dolphin/blob/87c27936fc6f7a748dd926b3f9d4930f4813bfed/Source/Core/VideoBackends/Software/Tev.cpp#L583-L597
+    # https://github.com/magcius/noclip.website/blob/99acba7be7875b5b223557cbe6aec036d7a7d2f0/src/gx/gx_material.ts#L1972-L1987
+    # val = (mat.fog_info.far_z - mat.fog_info.near_z) / (mat.fog_info.end_z - mat.fog_info.start_z) # orthographic? TODO noclip
+    if mat.fog_info.far_z == mat.fog_info.near_z or mat.fog_info.end_z == mat.fog_info.start_z:
+      # Avoid division by 0
+      val_a = 0.0
+    else:
+      val_a = (mat.fog_info.far_z * mat.fog_info.near_z) / ((mat.fog_info.far_z - mat.fog_info.near_z) * (mat.fog_info.end_z - mat.fog_info.start_z))
+    if mat.fog_info.far_z == mat.fog_info.near_z:
+      val_b = 0.0
+    else:
+      val_b = 2.25715 # mat.fog_info.far_z / (mat.fog_info.far_z - mat.fog_info.near_z)
+    # print(val_a)
+    if mat.fog_info.end_z == mat.fog_info.start_z:
+      # Avoid division by 0
+      val_c = 0.0
+    else:
+      val_c = mat.fog_info.start_z / (mat.fog_info.end_z - mat.fog_info.start_z)
+    integral_a = fs.bit_cast_float_to_int(val_a)
+    integral_b = fs.bit_cast_float_to_int(val_b)
+    integral_c = fs.bit_cast_float_to_int(val_c)
+    self.bp_commands.append(BP.TEV_FOG_PARAM_0(
+      register=BPRegister.TEV_FOG_PARAM_0,
+      mantissa=(integral_a >> 12 & 0x7FF), exponent=((integral_a >> 23 & 0xFF) - 2), sign=(integral_a >> 31 & 1),
+    ))
+    self.bp_commands.append(BP.TEV_FOG_PARAM_1(
+      register=BPRegister.TEV_FOG_PARAM_1,
+      magnitude=(integral_b >> 8), # TODO
+    ))
+    self.bp_commands.append(BP.TEV_FOG_PARAM_2(
+      register=BPRegister.TEV_FOG_PARAM_2,
+      shift=2, # TODO
+    ))
+    self.bp_commands.append(BP.TEV_FOG_PARAM_3(
+      register=BPRegister.TEV_FOG_PARAM_3,
+      mantissa=(integral_c >> 12 & 0x7FF), exponent=(integral_c >> 23 & 0xFF), sign=(integral_c >> 31 & 1),
+      projection=GX.FogProjection.PERSPECTIVE, # TODO FogInfo.fog_type & 0x08 might be this? can't find examples in WW tho
+      fog_type=mat.fog_info.fog_type,
+    ))
+    
+    color = mat.fog_info.color
+    self.bp_commands.append(BP.TEV_FOG_COLOR(
+      register=BPRegister.TEV_FOG_COLOR,
+      r=color.r, g=color.g, b=color.b,
+    ))
+    
+    self.bp_commands.append(BP.FOG_RANGE(
+      register=BPRegister.FOG_RANGE,
+      center=mat.fog_info.center+342, enabled=False,
+    ))
+    # TODO
+    # for i in range(5):
+    #   self.bp_commands.append(FOG_RANGE_ADJ(
+    #     reg_index=i,
+    #     hi=0, lo=0,
+    #   ))
+    
+    self.bp_commands.append(BP.TEV_ALPHAFUNC(
+      register=BPRegister.TEV_ALPHAFUNC,
+      ref0=mat.alpha_compare.ref0, ref1=mat.alpha_compare.ref1,
+      comp0=mat.alpha_compare.comp0, comp1=mat.alpha_compare.comp1,
+      operation=mat.alpha_compare.operation,
+    ))
+    
+    self.bp_commands.append(BP.BP_MASK(
+      register=BPRegister.BP_MASK,
+      mask=0x001FE7,
+    ))
+    cmode0_cmd = BP.PE_CMODE0(reg_index=0)
+    if mat.blend_mode.mode == GX.BlendMode.Blend:
+      cmode0_cmd.blend = True
+    elif mat.blend_mode.mode == GX.BlendMode.Subtract:
+      cmode0_cmd.blend = True
+      cmode0_cmd.subtract = True
+    elif mat.blend_mode.mode == GX.BlendMode.Logic:
+      cmode0_cmd.logic = True
+    cmode0_cmd.destination_factor = mat.blend_mode.destination_factor
+    cmode0_cmd.source_factor = mat.blend_mode.source_factor
+    cmode0_cmd.logic_op = mat.blend_mode.logic_op
+    cmode0_cmd.dither = mat.dither
+    self.bp_commands.append(cmode0_cmd)
+    
+    self.bp_commands.append(BP.PE_ZMODE(
+      register=BPRegister.PE_ZMODE,
+      depth_test=mat.z_mode.depth_test, depth_func=mat.z_mode.depth_func, depth_write=mat.z_mode.depth_write,
+    ))
+    
+    self.bp_commands.append(BP.BP_MASK(
+      register=BPRegister.BP_MASK,
+      mask=0x000040,
+    ))
+    self.bp_commands.append(BP.PE_CONTROL(
+      register=BPRegister.PE_CONTROL,
+      z_compare=mat.z_compare,
+    ))
+    
+    self.bp_commands.append(BP.BP_MASK(
+      register=BPRegister.BP_MASK,
+      mask=0x07FC3F,
+    ))
+    if mat.cull_mode == GX.CullMode.Cull_All:
+      cull_mode = BP.MDLCullMode.Cull_None
+    else:
+      cull_mode = BP.MDLCullMode[mat.cull_mode.name]
+    self.bp_commands.append(BP.GEN_MODE(
+      register=BPRegister.GEN_MODE,
+      num_tex_gens=mat.num_tex_gens, num_color_chans=mat.num_color_chans,
+      num_tev_stages_minus_1=mat.num_tev_stages-1,
+      cull_mode=cull_mode
+    ))
+    
+    
+    for i, tex_matrix in enumerate(mat.tex_matrixes):
+      if tex_matrix is None:
+        break
+      
+      default_tex_matrix = TexMatrix()
+      any_non_default = False
+      if tex_matrix.projection != TexMtxProjection.MTX2x4:
+        any_non_default = True
+      if tex_matrix.scale != default_tex_matrix.scale:
+        any_non_default = True
+      if tex_matrix.translation != default_tex_matrix.translation:
+        any_non_default = True
+      if tex_matrix.center != default_tex_matrix.center:
+        any_non_default = True
+      # TODO: wizzrobes have default scale/translation, and yet they have the TEXMTX command. why?
+      if not any_non_default:
+        continue
+      
+      if tex_matrix.projection == TexMtxProjection.MTX2x4:
+        tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])
+        # TODO: rotation
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.scale.x))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.translation.x))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.scale.y))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.translation.y))
+        self.xf_commands.append(tex_mtx_cmd)
+      elif tex_matrix.projection == TexMtxProjection.MTX3x4:
+        raise NotImplementedError() # TODO
+    
+    tex_mtx_info_cmd = XF.TEXMTXINFO(register=XFRegister.TEXMTXINFO)
+    pos_mtx_info_cmd = XF.POSMTXINFO(register=XFRegister.POSMTXINFO)
+    for i, coord_gen in enumerate(mat.tex_coord_gens):
+      if coord_gen is None:
+        continue
+      tex_arg = XF.TEXMTXINFO_Arg()
+      tex_arg.unknown_04 = 0
+      tex_arg.unknown_07 = 0
+      if coord_gen.source in [GX.TexGenSrc.POS, GX.TexGenSrc.NRM, GX.TexGenSrc.BINRM, GX.TexGenSrc.TANGENT]:
+        tex_arg.unknown_02 = True
+      
+      if GX.TexGenType.BUMP0 <= coord_gen.type_ <= GX.TexGenType.BUMP7:
+        tex_arg.unknown_04 = 1
+        tex_arg.unknown_07 = 5
+        tex_arg.unknown_12 = coord_gen.source.value - GX.TexGenSrc.TEX0.value
+        tex_arg.unknown_15 = coord_gen.type_.value - GX.TexGenType.BUMP0.value
+      elif coord_gen.type_ == GX.TexGenType.SRTG:
+        if coord_gen.source == GX.TexGenSrc.COLOR0:
+          tex_arg.unknown_04 = 2
+        else:
+          tex_arg.unknown_04 = 3
+        tex_arg.unknown_07 = 2
+      elif coord_gen.type_ == GX.TexGenType.MTX2x4:
+        tex_arg.unknown_04 = 0
+        if coord_gen.source in [GX.TexGenSrc.POS, GX.TexGenSrc.NRM]:
+          tex_arg.unknown_07 = coord_gen.source.value
+        else:
+          tex_arg.unknown_07 = coord_gen.source.value + 1
+      elif coord_gen.type_ == GX.TexGenType.MTX3x4:
+        tex_arg.unknown_01 = True
+      
+      tex_mtx_info_cmd.args.append(tex_arg)
+      
+      tex_arg = XF.POSMTXINFO_Arg()
+      pos_mtx_info_cmd.args.append(tex_arg)
+    self.xf_commands.append(tex_mtx_info_cmd)
+    self.xf_commands.append(pos_mtx_info_cmd)
+    
+    mat_color_cmd = XF.CHAN0_MATCOLOR(register=XFRegister.CHAN0_MATCOLOR)
+    for i, mat_color in enumerate(mat.material_colors):
+      if mat_color is None:
+        continue
+      color_arg = XF.CHAN0_MATCOLOR_Arg(
+        r=mat_color.r, g=mat_color.g, b=mat_color.b, a=mat_color.a,
+      )
+      mat_color_cmd.args.append(color_arg)
+    self.xf_commands.append(mat_color_cmd)
+    
+    amb_color_cmd = XF.CHAN0_AMBCOLOR(register=XFRegister.CHAN0_AMBCOLOR)
+    for i, amb_color in enumerate(mat.ambient_colors):
+      if amb_color is None:
+        continue
+      color_arg = XF.CHAN0_AMBCOLOR_Arg(
+        r=amb_color.r, g=amb_color.g, b=amb_color.b, a=amb_color.a,
+      )
+      amb_color_cmd.args.append(color_arg)
+    self.xf_commands.append(amb_color_cmd)
+    
+    color_chan_cmd = XF.CHAN0_COLOR(register=XFRegister.CHAN0_COLOR)
+    reordered_color_channels = [
+      mat.color_channels[0],
+      mat.color_channels[2],
+      mat.color_channels[1],
+      mat.color_channels[3],
+    ]
+    for i, color_chan in enumerate(reordered_color_channels):
+      color_chan_arg = XF.CHAN0_COLOR_Arg()
+      color_chan_arg.lighting_enabled = color_chan.lighting_enabled
+      color_chan_arg.mat_color_src = color_chan.mat_color_src
+      color_chan_arg.ambient_color_src = color_chan.ambient_color_src
+      if color_chan.attenuation_function == GX.AttenuationFunction.Specular:
+        color_chan_arg.attenuation_enabled = True
+        color_chan_arg.use_spot_attenuation = False
+        color_chan_arg.diffuse_function = GX.DiffuseFunction.None_
+      elif color_chan.attenuation_function == GX.AttenuationFunction.Spot:
+        color_chan_arg.attenuation_enabled = True
+        color_chan_arg.use_spot_attenuation = True
+        color_chan_arg.diffuse_function = color_chan.diffuse_function
+      elif color_chan.attenuation_function == GX.AttenuationFunction.None_:
+        color_chan_arg.attenuation_enabled = False
+        color_chan_arg.use_spot_attenuation = True
+        color_chan_arg.diffuse_function = color_chan.diffuse_function
+      color_chan_arg.used_lights_0123 = color_chan.used_lights[0:4]
+      color_chan_arg.used_lights_4567 = color_chan.used_lights[4:8]
+      color_chan_cmd.args.append(color_chan_arg)
+    self.xf_commands.append(color_chan_cmd)
+    
+    num_color_chans_cmd = XF.NUMCHAN(register=XFRegister.NUMCHAN)
+    num_color_chans_cmd.args.append(XF.NUMCHAN_Arg(
+      num_color_chans=mat.num_color_chans,
+    ))
+    self.xf_commands.append(num_color_chans_cmd)
+    
+    num_tex_gens_cmd = XF.NUMTEXGENS(register=XFRegister.NUMTEXGENS)
+    num_tex_gens_cmd.args.append(XF.NUMTEXGENS_Arg(
+      num_tex_gens=mat.num_tex_gens,
+    ))
+    self.xf_commands.append(num_tex_gens_cmd)
+    
+    # TODO (example model: fn_body)
+    # LIGHT0_COLOR
+    # LIGHT0_DHX
+    # LIGHT0_LPX
+    
+    
+    # TODO: maybe do this when save() is called?
+    for cmd in self.bp_commands:
+      cmd.data = self.data
+    for cmd in self.xf_commands:
+      cmd.data = self.data
+      for arg in cmd.args:
+        arg.data = self.data
 
 @bunfoe
 class MDL3(JChunk):
@@ -247,10 +585,12 @@ class MDL3(JChunk):
   indexes_offset           : u32
   mat_names_table_offset   : u32
   
+  entries: list[MDLEntry] = field(ignore=True, default_factory=list)
+  
   def read_chunk_specific_data(self):
     BUNFOE.read(self, 0)
     
-    self.entries: list[MDLEntry] = []
+    self.entries.clear()
     packet_offset = self.packets_offset
     for i in range(self.num_entries):
       entry_offset = packet_offset + fs.read_u32(self.data, packet_offset + 0x00)
@@ -274,6 +614,11 @@ class MDL3(JChunk):
     
     self.string_table_offset = fs.read_u32(self.data, 0x20)
     self.mat_names = self.read_string_table(self.string_table_offset)
+  
+  def generate_from_mat3(self, mat3: MAT3, tex1: TEX1):
+    for mat, entry in zip(mat3.materials, self.entries):
+      entry.generate_from_material(mat, tex1)
+    self.save()
   
   def save_chunk_specific_data(self):
     self.data.truncate(0x40)
@@ -317,6 +662,7 @@ class MDL3(JChunk):
     for entry in self.entries:
       # A big endian float followed by a little endian float. What these are exactly isn't known.
       # They're usually all the same value, but there are exceptions, such as Link's eyeL and eyeR materials.
+      # TODO: could maybe be related to texmtx in some way? eyeL and eyeR have non-default texmtx
       fs.write_and_pack_bytes(self.data, offset+0x00, [entry.unknown_float_1], ">f")
       fs.write_and_pack_bytes(self.data, offset+0x04, [entry.unknown_float_2], "<f")
       offset += 8
