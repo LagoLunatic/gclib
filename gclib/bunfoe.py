@@ -7,6 +7,7 @@ import typing
 import types
 import functools
 from io import BytesIO
+import copy
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
@@ -14,6 +15,11 @@ from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, 
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
+# TODO: assert that bitfield bits we never even read are always 0? maybe make it an option when creating the bitfield, assert_unread_zero?
+# TODO: allow @property decorator functions to appear in the GUI as if they were fields?
+# TODO: need to split the ignore option into two:
+#       one would prevent it from being read automatically (e.g. MDL3.entries). maybe call it noread.
+#       the other would make it hidden and not show up in fields()/asdict()? e.g. INF1.parent
 
 T = TypeVar('T')
 
@@ -179,6 +185,22 @@ class BUNFOE:
   
   def copy(self, /, **changes) -> Self:
     return dataclasses.replace(self, **changes)
+  
+  def asdict(self) -> dict:
+    result = []
+    for field in fields(self):
+      result.append((field.name, self._asdict_inner(getattr(self, field.name))))
+    return dict(result)
+  
+  def _asdict_inner(self, obj):
+    if isinstance(obj, BUNFOE):
+      return obj.asdict()
+    elif isinstance(obj, (list, tuple)):
+      return type(obj)(self._asdict_inner(v) for v in obj)
+    elif issubclass(type(obj), Enum):
+      return str(obj)
+    else:
+      return copy.deepcopy(obj)
   
   @staticmethod
   @functools.cache
