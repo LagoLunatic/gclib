@@ -4,7 +4,7 @@ import glob
 
 from gclib import fs_helpers as fs
 from gclib.jpa_enums import JPACVersion
-from gclib.jpa import JParticle
+from gclib.jpa import JParticle, JParticle100, JParticle210
 from gclib.jpa_chunks.tex1 import TEX1
 
 PARTICLE_LIST_OFFSET = {
@@ -15,9 +15,19 @@ PARTICLE_LIST_OFFSET = {
 class JPC:
   tex1: TEX1
   
+  version: JPACVersion
+  particles: list[JParticle]
+  particles_by_id: dict[int, JParticle]
+  textures: list[TEX1]
+  textures_by_filename: dict[str, TEX1]
+  
   def __init__(self, data):
+    self.particles = []
+    self.particles_by_id = {}
+    self.textures = []
+    self.textures_by_filename = {}
+    
     self.data = data
-    self.version: JPACVersion
     self.read()
   
   def read(self):
@@ -28,8 +38,8 @@ class JPC:
     if self.version == JPACVersion.JPAC2_10:
       self.tex_offset = fs.read_u32(self.data, 0xC)
     
-    self.particles: list[JParticle] = []
-    self.particles_by_id: dict[int, JParticle] = {}
+    self.particles.clear()
+    self.particles_by_id.clear()
     offset = PARTICLE_LIST_OFFSET[self.version]
     for particle_index in range(self.num_particles):
       particle = JParticle(self.data, offset, self.version)
@@ -43,8 +53,8 @@ class JPC:
       # So we instead add the size of the data the particle read, because that is done in an accurate way.
       offset += fs.data_len(particle.data)
     
-    self.textures: list[TEX1] = []
-    self.textures_by_filename: dict[str, TEX1] = {}
+    self.textures.clear()
+    self.textures_by_filename.clear()
     if self.version == JPACVersion.JPAC2_10:
       offset = self.tex_offset
     for texture_index in range(self.num_textures):
@@ -203,3 +213,11 @@ class JPC:
       self.data.write(texture_data)
     
     fs.align_data_to_nearest(self.data, 0x20, padding_bytes=b'\0')
+
+class JPC100(JPC):
+  particles: list[JParticle100]
+  particles_by_id: dict[int, JParticle100]
+
+class JPC210(JPC):
+  particles: list[JParticle210]
+  particles_by_id: dict[int, JParticle210]
