@@ -1,8 +1,9 @@
 from enum import Enum
 
 from gclib import fs_helpers as fs
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 
-class LoopMode(Enum):
+class LoopMode(u8, Enum):
   ONCE = 0
   ONCE_AND_RESET = 1
   REPEAT = 2

@@ -11,6 +11,7 @@ from gclib.j3d_chunks.shp1 import SHP1
 from gclib.j3d_chunks.mat3 import MAT3
 from gclib.j3d_chunks.mdl3 import MDL3
 from gclib.j3d_chunks.tex1 import TEX1
+from gclib.j3d_chunks.ank1 import ANK1
 from gclib.j3d_chunks.trk1 import TRK1
 from gclib.j3d_chunks.ttk1 import TTK1
 
@@ -27,6 +28,7 @@ class J3D(GCLibFile):
   mat3: Optional[MAT3]
   tex1: Optional[TEX1]
   mdl3: Optional[MDL3]
+  ank1: Optional[ANK1]
   trk1: Optional[TRK1]
   ttk1: Optional[TTK1]
   
@@ -173,6 +175,12 @@ class BMT(J3D):
   
   mat3: MAT3
   tex1: Optional[TEX1]
+
+class BCK(J3D):
+  KNOWN_MAGICS = ["J3D1"]
+  KNOWN_FILE_TYPES = ["bck1"]
+  
+  ank1: ANK1
 
 class BRK(J3D):
   KNOWN_MAGICS = ["J3D1"]
