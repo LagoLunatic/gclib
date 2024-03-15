@@ -454,12 +454,15 @@ class MAT3(JChunk):
     offset = self.write_string_table(self.mat_names_table_offset, self.mat_names)
     offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
-    assert len(self.indirects) == len(self.materials)
-    self.indirect_list_offset = offset
-    for indirect in self.indirects:
-      indirect.save(offset)
-      offset += TextureIndirect.DATA_SIZE
-    offset = fs.align_data_and_pad_offset(self.data, offset, 4)
+    if len(self.indirects) == 0:
+      self.indirect_list_offset = self.mat_names_table_offset
+    else:
+      assert len(self.indirects) == len(self.materials)
+      self.indirect_list_offset = offset
+      for indirect in self.indirects:
+        indirect.save(offset)
+        offset += TextureIndirect.DATA_SIZE
+      offset = fs.align_data_and_pad_offset(self.data, offset, 4)
     
     # First clear all of these fields to be safe so we don't accidentally write stale data.
     for field in fields(self):
