@@ -493,6 +493,10 @@ class RARCNode:
   def __init__(self, rarc):
     self.rarc = rarc
     
+    self.type = None
+    self.name_offset = None
+    self.name_hash = None
+    self.name = None
     self.files = [] # This will be populated after the file entries have been read.
     self.num_files = 0
     self.first_file_index = None
@@ -524,6 +528,12 @@ class RARCNode:
     fs.write_u16(self.rarc.data, self.node_offset+0x08, self.name_hash)
     fs.write_u16(self.rarc.data, self.node_offset+0x0A, self.num_files)
     fs.write_u32(self.rarc.data, self.node_offset+0x0C, self.first_file_index)
+  
+  def __str__(self):
+    return f"<{self.__class__.__name__}: {self.type!r}>"
+  
+  def __repr__(self):
+    return str(self)
 
 class RARCFileEntry(GCLibFileEntry):
   ENTRY_SIZE = 0x14
@@ -535,6 +545,13 @@ class RARCFileEntry(GCLibFileEntry):
     
     self.parent_node: RARCNode = None
     self.id = 0xFFFF
+    self.name_hash = None
+    self.data_size = 0
+    self.data = None
+    self.type = None
+    self.name_offset = None
+    self.name = None
+    self.node = None
   
   def read(self, entry_offset):
     self.entry_offset = entry_offset
@@ -619,6 +636,12 @@ class RARCFileEntry(GCLibFileEntry):
     fs.write_u32(self.rarc.data, self.entry_offset+0x08, data_offset_or_node_index)
     fs.write_u32(self.rarc.data, self.entry_offset+0x0C, self.data_size)
     fs.write_u32(self.rarc.data, self.entry_offset+0x10, 0) # Pointer to the file's data, filled at runtime.
+  
+  def __str__(self):
+    return f"<{self.__class__.__name__}: {self.name!r}>"
+  
+  def __repr__(self):
+    return str(self)
 
 class RARCFileAttrType(IntFlag):
   FILE            = 0x01
