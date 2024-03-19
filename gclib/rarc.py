@@ -6,7 +6,7 @@ from typing import Type, TypeVar
 
 from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile, GCLibFileEntry
-from gclib.yaz0 import Yaz0
+from gclib.yaz0_yay0 import Yaz0, Yay0
 
 GCLibFileT = TypeVar('GCLibFileT', bound=GCLibFile)
 
@@ -604,7 +604,7 @@ class RARCFileEntry(GCLibFileEntry):
     if Yaz0.check_is_compressed(self.data):
       self.type |= RARCFileAttrType.COMPRESSED
       self.type |= RARCFileAttrType.YAZ0_COMPRESSED
-    elif fs.try_read_str(self.data, 0, 4) == "Yay0":
+    elif Yay0.check_is_compressed(self.data):
       self.type |= RARCFileAttrType.COMPRESSED
       self.type &= ~RARCFileAttrType.YAZ0_COMPRESSED
     else:

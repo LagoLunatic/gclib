@@ -1,6 +1,6 @@
 
 from gclib import fs_helpers as fs
-from gclib.yaz0 import Yaz0
+from gclib.yaz0_yay0 import Yaz0
 
 from io import BytesIO
 from enum import Enum
