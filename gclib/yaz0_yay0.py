@@ -148,7 +148,7 @@ class Yaz0(Yaz0Yay0):
       mask = (mask << 1)
       mask_bits_left -= 1
     
-    uncomp_data = struct.pack("B"*output_len, *output)
+    uncomp_data = bytes(output)
     
     return BytesIO(uncomp_data)
   
