@@ -1,5 +1,4 @@
 
-import struct
 from io import BytesIO
 
 from gclib import fs_helpers as fs
@@ -148,7 +147,7 @@ class Yaz0(Yaz0Yay0):
       mask = (mask << 1)
       mask_bits_left -= 1
     
-    uncomp_data = struct.pack("B"*output_len, *output)
+    uncomp_data = bytes(output)
     
     return BytesIO(uncomp_data)
   
@@ -302,7 +301,7 @@ class Yay0(Yaz0Yay0):
       mask <<= 1
       mask_bits_left -= 1
     
-    uncomp_data = struct.pack("B"*output_len, *output)
+    uncomp_data = bytes(output)
     
     return BytesIO(uncomp_data)
   
