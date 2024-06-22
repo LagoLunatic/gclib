@@ -1,7 +1,7 @@
 
 import struct
 from io import BytesIO
-from typing import BinaryIO
+from typing import BinaryIO, Any
 from types import GenericAlias
 
 PADDING_BYTES = b"This is padding data to alignme"
@@ -40,13 +40,13 @@ def read_and_unpack_bytes(data: BinaryIO, offset: int, length: int, format_strin
   unpacked_data = struct.unpack(format_string, requested_data)
   return unpacked_data
 
-def write_and_pack_bytes(data: BinaryIO, offset: int, new_values, format_string):
+def write_and_pack_bytes(data: BinaryIO, offset: int, new_values: list[Any], format_string: str | bytes):
   packed_data = struct.pack(format_string, *new_values)
   data.seek(offset)
   data.write(packed_data)
 
 
-def read_str(data: BinaryIO, offset: int, length) -> str:
+def read_str(data: BinaryIO, offset: int, length: int) -> str:
   data_length = data.seek(0, 2)
   if offset+length > data_length:
     raise InvalidOffsetError("Offset 0x%X, length 0x%X is past the end of the data (length 0x%X)." % (offset, length, data_length))
@@ -55,7 +55,7 @@ def read_str(data: BinaryIO, offset: int, length) -> str:
   string = string.rstrip("\0") # Remove trailing null bytes
   return string
 
-def try_read_str(data: BinaryIO, offset: int, length):
+def try_read_str(data: BinaryIO, offset: int, length: int):
   try:
     return read_str(data, offset, length)
   except UnicodeDecodeError:
@@ -84,7 +84,7 @@ def read_str_until_null_character(data: BinaryIO, offset: int) -> str:
   
   return string
 
-def write_str(data: BinaryIO, offset: int, new_string, max_length):
+def write_str(data: BinaryIO, offset: int, new_string: str, max_length: int):
   # Writes a fixed-length string.
   # Although it is fixed-length, it still must have a null character terminating it, so the real max length is one less than the passed max_length argument.
   
@@ -99,7 +99,7 @@ def write_str(data: BinaryIO, offset: int, new_string, max_length):
   data.seek(offset)
   data.write(new_value)
 
-def write_magic_str(data: BinaryIO, offset: int, new_string, max_length):
+def write_magic_str(data: BinaryIO, offset: int, new_string: str, max_length: int):
   # Writes a fixed-length string that does not have to end with a null byte.
   # This is for magic file format identifiers.
   
@@ -114,7 +114,7 @@ def write_magic_str(data: BinaryIO, offset: int, new_string, max_length):
   data.seek(offset)
   data.write(new_value)
 
-def write_str_with_null_byte(data: BinaryIO, offset: int, new_string):
+def write_str_with_null_byte(data: BinaryIO, offset: int, new_string: str):
   # Writes a non-fixed length string.
   
   str_len = len(new_string)
@@ -155,50 +155,50 @@ def read_s32(data: BinaryIO, offset: int) -> int:
   return struct.unpack(">i", data.read(4))[0]
 
 
-def write_u8(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">B", new_value)
+def write_u8(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">B", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
-def write_u16(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">H", new_value)
+def write_u16(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">H", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
-def write_u24(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">I", new_value)
-  assert new_value[0] == 0
+def write_u24(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">I", new_value)
+  assert new_bytes[0] == 0
   data.seek(offset)
-  data.write(new_value[1:])
+  data.write(new_bytes[1:])
 
-def write_u32(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">I", new_value)
+def write_u32(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">I", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
-def write_float(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">f", new_value)
+def write_float(data: BinaryIO, offset: int, new_value: float):
+  new_bytes = struct.pack(">f", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
 
-def write_s8(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">b", new_value)
+def write_s8(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">b", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
-def write_s16(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">h", new_value)
+def write_s16(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">h", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
-def write_s32(data: BinaryIO, offset: int, new_value):
-  new_value = struct.pack(">i", new_value)
+def write_s32(data: BinaryIO, offset: int, new_value: int):
+  new_bytes = struct.pack(">i", new_value)
   data.seek(offset)
-  data.write(new_value)
+  data.write(new_bytes)
 
 
-def align_data_to_nearest(data: BinaryIO, size, padding_bytes=PADDING_BYTES):
+def align_data_to_nearest(data: BinaryIO, size: int, padding_bytes:bytes=PADDING_BYTES):
   current_end = data_len(data)
   next_offset = current_end + (size - current_end % size) % size
   padding_needed = next_offset - current_end
@@ -211,7 +211,7 @@ def pad_offset_to_nearest(offset: int, size: int) -> int:
   next_offset = offset + (size - offset % size) % size
   return next_offset
 
-def align_data_and_pad_offset(data: BinaryIO, offset: int, size: int, padding_bytes=PADDING_BYTES) -> int:
+def align_data_and_pad_offset(data: BinaryIO, offset: int, size: int, padding_bytes:bytes=PADDING_BYTES) -> int:
   next_offset = offset + (size - offset % size) % size
   padding_needed = next_offset - offset
   data.seek(offset)

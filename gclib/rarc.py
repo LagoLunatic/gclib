@@ -117,7 +117,7 @@ class RARC(GCLibFile):
     
     self.regenerate_all_file_entries_list()
   
-  def add_new_directory(self, dir_name, node_type, parent_node):
+  def add_new_directory(self, dir_name: str, node_type: str, parent_node: 'RARCNode'):
     if len(node_type) > 4:
       raise Exception("Node type must not be longer than 4 characters: %s" % node_type)
     if len(node_type) < 4:
@@ -156,7 +156,7 @@ class RARC(GCLibFile):
     
     return dir_entry, node
   
-  def add_new_file(self, file_name, file_data, node):
+  def add_new_file(self, file_name: str, file_data: BytesIO, node: 'RARCNode'):
     file_entry = RARCFileEntry(self)
     
     if not self.keep_file_ids_synced_with_indexes:
@@ -183,7 +183,7 @@ class RARC(GCLibFile):
     
     return file_entry
   
-  def delete_directory(self, dir_entry):
+  def delete_directory(self, dir_entry: 'RARCFileEntry'):
     node = dir_entry.node
     
     dir_entry.parent_node.files.remove(dir_entry)
@@ -493,14 +493,14 @@ class RARCNode:
   def __init__(self, rarc):
     self.rarc = rarc
     
-    self.type = None
-    self.name_offset = None
-    self.name_hash = None
-    self.name = None
-    self.files = [] # This will be populated after the file entries have been read.
-    self.num_files = 0
-    self.first_file_index = None
-    self.dir_entry = None # This will be populated when the corresponding directory entry is read.
+    self.type: str = None
+    self.name_offset: int = None
+    self.name_hash: int = None
+    self.name: str = None
+    self.files: list[RARCFileEntry] = [] # This will be populated after the file entries have been read.
+    self.num_files: int = 0
+    self.first_file_index: int = None
+    self.dir_entry: RARCFileEntry = None # This will be populated when the corresponding directory entry is read.
   
   def read(self, node_offset):
     self.node_offset = node_offset
@@ -544,14 +544,14 @@ class RARCFileEntry(GCLibFileEntry):
     self.rarc = rarc
     
     self.parent_node: RARCNode = None
-    self.id = 0xFFFF
-    self.name_hash = None
-    self.data_size = 0
-    self.data = None
-    self.type = None
-    self.name_offset = None
-    self.name = None
-    self.node = None
+    self.id: int = 0xFFFF
+    self.name_hash: int = None
+    self.data_size: int = 0
+    self.data: BytesIO = None
+    self.type: RARCFileAttrType = None
+    self.name_offset: int = None
+    self.name: str = None
+    self.node: RARCNode = None
   
   def read(self, entry_offset):
     self.entry_offset = entry_offset
