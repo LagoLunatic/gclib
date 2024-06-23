@@ -235,7 +235,47 @@ class TEV_ALPHA_ENV(BPCommand):
   ]
 
 @bunfoe
+class IND_MTXA(BPCommand):
+  ma: s32 = field(bits=11)
+  mb: s32 = field(bits=11)
+  s0: u32 = field(bits=2)
+  
+  VALID_REGISTERS = [
+    BPRegister.IND_MTXA0, BPRegister.IND_MTXA1, BPRegister.IND_MTXA2,
+  ]
+
+@bunfoe
+class IND_MTXB(BPCommand):
+  mc: s32 = field(bits=11)
+  md: s32 = field(bits=11)
+  s1: u32 = field(bits=2)
+  
+  VALID_REGISTERS = [
+    BPRegister.IND_MTXB0, BPRegister.IND_MTXB1, BPRegister.IND_MTXB2,
+  ]
+
+@bunfoe
+class IND_MTXC(BPCommand):
+  me: s32 = field(bits=11)
+  mf: s32 = field(bits=11)
+  s2: u32 = field(bits=2) # Note: According to Dolphin, hardware ignores the topmost scale bit here.
+  
+  VALID_REGISTERS = [
+    BPRegister.IND_MTXC0, BPRegister.IND_MTXC1, BPRegister.IND_MTXC2,
+  ]
+
+@bunfoe
 class IND_CMD(BPCommand):
+  tev_stage: GX.IndTexStageID  = field(bits=2)
+  format   : GX.IndTexFormat   = field(bits=2)
+  bias_sel : GX.IndTexBiasSel  = field(bits=3)
+  alpha_sel: GX.IndTexAlphaSel = field(bits=2)
+  mtx_sel  : GX.IndTexMtxSel   = field(bits=4)
+  wrap_s   : GX.IndTexWrap     = field(bits=3)
+  wrap_t   : GX.IndTexWrap     = field(bits=3)
+  utc_lod  : bool              = field(bits=1)
+  add_prev : bool              = field(bits=1)
+  
   VALID_REGISTERS = [
     BPRegister.IND_CMD0, BPRegister.IND_CMD1, BPRegister.IND_CMD2, BPRegister.IND_CMD3,
     BPRegister.IND_CMD4, BPRegister.IND_CMD5, BPRegister.IND_CMD6, BPRegister.IND_CMD7,

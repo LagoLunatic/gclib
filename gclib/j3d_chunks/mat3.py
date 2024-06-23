@@ -109,7 +109,7 @@ class TexMatrix(BUNFOE):
   unknown_1    : bool             = field(bits=1, default=False, assert_default=True)
   is_maya      : bool             = field(bits=1, default=False)
   _padding_1   : u16              = 0xFFFF
-  center       : Vec3float        = field(default_factory=lambda: Vec3float(x=0.5, y=0.5, z=0.0))
+  center       : Vec3float        = field(default_factory=lambda: Vec3float(x=0.5, y=0.5, z=0.5))
   scale        : Vec2float        = field(default_factory=lambda: Vec2float(x=1.0, y=1.0))
   rotation     : u16Rot           = 0
   _padding_2   : u16              = 0xFFFF
@@ -155,6 +155,7 @@ class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
   mat3: 'MAT3' = field(default=None, repr=False, compare=False, kw_only=False, ignore=True)
+  tex_indirect: 'TextureIndirect' = field(default=None, repr=False, compare=False, kw_only=False, ignore=True)
   
   pixel_engine_mode   : GX.PixelEngineMode     = GX.PixelEngineMode.Opaque
   cull_mode           : GX.CullMode            = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
@@ -277,9 +278,9 @@ class IndirectTevOrder(BUNFOE):
 
 @bunfoe
 class IndirectTexMatrix(BUNFOE):
-  matrix  : Matrix2x3  = field(default_factory=Matrix2x3)
-  exponent: u8         = 1
-  _padding: u24        = 0xFFFFFF
+  matrix        : Matrix2x3 = field(default_factory=Matrix2x3)
+  scale_exponent: s8        = 1
+  _padding      : u24       = 0xFFFFFF
 
 @bunfoe
 class IndirectTexScale(BUNFOE):
@@ -289,16 +290,16 @@ class IndirectTexScale(BUNFOE):
 
 @bunfoe
 class IndirectTevStage(BUNFOE):
-  tev_stage       : GX.IndTexStageID
-  ind_tex_format  : GX.IndTexFormat
-  ind_tex_bias_sel: GX.IndTexBiasSel
-  ind_tex_mtx_id  : GX.IndTexMtxID
-  ind_tex_wrap_s  : GX.IndTexWrap
-  ind_tex_wrap_t  : GX.IndTexWrap
-  add_prev        : bool
-  utc_lod         : bool
-  alpha_sel       : GX.IndTexAlphaSel
-  _padding        : u24 = 0xFFFFFF
+  tev_stage: GX.IndTexStageID
+  format   : GX.IndTexFormat
+  bias_sel : GX.IndTexBiasSel
+  mtx_sel  : GX.IndTexMtxSel
+  wrap_s   : GX.IndTexWrap
+  wrap_t   : GX.IndTexWrap
+  add_prev : bool
+  utc_lod  : bool
+  alpha_sel: GX.IndTexAlphaSel
+  _padding : u24 = 0xFFFFFF
 
 @bunfoe
 class TextureIndirect(BUNFOE):
@@ -374,6 +375,7 @@ class MAT3(JChunk):
         indirect.read(indirect_offset)
         self.indirects.append(indirect)
         indirect_offset += TextureIndirect.DATA_SIZE
+        self.materials[mat_index].tex_indirect = indirect
   
   def read_indexed_value(self, value_type: Type, list_attr_name: str, index: int) -> Any:
     list_offset = getattr(self, list_attr_name)

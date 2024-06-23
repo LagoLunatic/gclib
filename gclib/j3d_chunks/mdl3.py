@@ -1,9 +1,11 @@
 from enum import Enum
 from io import BytesIO
+import math
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, bunfoe, field
+from gclib.bunfoe_types import RGBAu8
 from gclib.jchunk import JChunk
 import gclib.gx_enums as GX
 from gclib.gx_enums import MDLCommandType, BPRegister, XFRegister
@@ -137,12 +139,15 @@ class MDLEntry(BUNFOE):
       # tmem_offset << 9
       self.bp_commands.append(BP.TEX_LOADTLUT0(
         register=BPRegister.TEX_LOADTLUT0,
-        src=0x37983, # TODO
+        src=0, # This is the physical address of the TLUT in RAM. (i.e. The virtual address minus 0x80000000.)
       ))
+      tmem_addr = (((i << 13) + 0xF0000 - 0x80000) >> 9)
+      tmem_line_count = 1
+      if tex.num_colors > 16:
+        tmem_line_count = 16
       self.bp_commands.append(BP.TEX_LOADTLUT1(
         register=BPRegister.TEX_LOADTLUT1,
-        tmem_addr=0x390, tmem_line_count=0x10, # TODO
-        # tmem_addr can sometimes be 0x380
+        tmem_addr=tmem_addr, tmem_line_count=tmem_line_count,
       ))
       self.bp_commands.append(BP.BP_MASK(
         register=BPRegister.BP_MASK,
@@ -153,8 +158,7 @@ class MDLEntry(BUNFOE):
       ))
       self.bp_commands.append(BP.TX_LOADTLUT(
         reg_index=i,
-        tmem_offset=0x390, format=tex.palette_format, # TODO
-        # tmem_offset can sometimes be 0x380
+        tmem_offset=tmem_addr, format=tex.palette_format, # TODO
       ))
     
     ras1_cmd = None
@@ -165,6 +169,9 @@ class MDLEntry(BUNFOE):
         ras1_cmd = BP.RAS1_TREF(
           reg_index=i//2,
           tex_map_0=GX.TexMapID.TEXMAP7, tex_map_1=GX.TexMapID.TEXMAP7,
+          # fn_body seems to want COLOR_ZERO here by default for null entries that are paired with non-null entries
+          # but then cl and gnd want COLOR0 in that situation instead
+          channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
         )
         cmds_for_order_pair = []
         either_order_exists = False
@@ -175,22 +182,28 @@ class MDLEntry(BUNFOE):
         tex_height = 1
       else:
         either_order_exists = True
-        # TODO: fn_body model has wrong MDLColorChannelID
-        if i % 2 == 0:
-          ras1_cmd.tex_map_0 = tev_order.tex_map_id
-          ras1_cmd.tex_coord_0 = tev_order.tex_coord_id
-          ras1_cmd.unknown_1_0 = 1
-          ras1_cmd.channel_id_0 = BP.MDLColorChannelID[tev_order.channel_id.name]
-        else:
-          ras1_cmd.tex_map_1 = tev_order.tex_map_id
-          ras1_cmd.tex_coord_1 = tev_order.tex_coord_id
-          ras1_cmd.unknown_1_1 = 1
-          ras1_cmd.channel_id_1 = BP.MDLColorChannelID[tev_order.channel_id.name]
         
-        tex_index = tev_order.tex_coord_id.value
-        tex = tex1.textures[mat.textures[tex_index]] # TODO unsure
-        tex_width = tex.width
-        tex_height = tex.height
+        if tev_order.tex_coord_id == GX.TexCoordID.TEXCOORD_NULL:
+          # TODO: not sure if this is correct or a hack
+          tex_index = 7
+          tex_width = 1
+          tex_height = 1
+        else:
+          tex_index = tev_order.tex_coord_id.value
+          tex = tex1.textures[mat.textures[tex_index]] # TODO unsure
+          tex_width = tex.width
+          tex_height = tex.height
+          
+          if i % 2 == 0:
+            ras1_cmd.tex_map_0 = tev_order.tex_map_id
+            ras1_cmd.tex_coord_0 = tev_order.tex_coord_id
+            ras1_cmd.unknown_1_0 = 1
+            ras1_cmd.channel_id_0 = BP.MDLColorChannelID[tev_order.channel_id.name]
+          else:
+            ras1_cmd.tex_map_1 = tev_order.tex_map_id
+            ras1_cmd.tex_coord_1 = tev_order.tex_coord_id
+            ras1_cmd.unknown_1_1 = 1
+            ras1_cmd.channel_id_1 = BP.MDLColorChannelID[tev_order.channel_id.name]
       
       cmds_for_order_pair.append(BP.BP_MASK(
         register=BPRegister.BP_MASK,
@@ -234,7 +247,7 @@ class MDLEntry(BUNFOE):
         g=color.g, b=color.b, is_konst=True,
       ))
     
-    for i, (tev_stage, swap_mode) in enumerate(zip(mat.tev_stages, mat.tev_swap_modes)):
+    for i, (tev_stage, swap_mode, ind_tev_stage) in enumerate(zip(mat.tev_stages, mat.tev_swap_modes, mat.tex_indirect.tev_stages)):
       if tev_stage is None or swap_mode is None:
         continue
       self.bp_commands.append(BP.TEV_COLOR_ENV(
@@ -256,6 +269,10 @@ class MDLEntry(BUNFOE):
       ))
       self.bp_commands.append(BP.IND_CMD(
         reg_index=i,
+        tev_stage=ind_tev_stage.tev_stage, format=ind_tev_stage.format,
+        bias_sel=ind_tev_stage.bias_sel, alpha_sel=ind_tev_stage.alpha_sel,
+        mtx_sel=ind_tev_stage.mtx_sel, wrap_s=ind_tev_stage.wrap_s, wrap_t=ind_tev_stage.wrap_t,
+        utc_lod=ind_tev_stage.utc_lod, add_prev=ind_tev_stage.add_prev,
       ))
     
     ksel_cmds: list[BP.TEV_KSEL] = []
@@ -288,6 +305,32 @@ class MDLEntry(BUNFOE):
         ksel_cmd.g_or_a = swap_mode_table.a
       self.bp_commands.append(ksel_cmd)
     
+    if mat.tex_indirect.enable:
+      assert mat.tex_indirect.num_ind_tex_stages >= 1
+      assert mat.tex_indirect.num_ind_tex_stages <= len(mat.tex_indirect.tex_matrixes)
+      for i in range(mat.tex_indirect.num_ind_tex_stages):
+        ind_tex_mtx = mat.tex_indirect.tex_matrixes[i]
+        ma = int(ind_tex_mtx.matrix.r0[0] * 1024.0) & 0x7FF
+        mb = int(ind_tex_mtx.matrix.r1[0] * 1024.0) & 0x7FF
+        mc = int(ind_tex_mtx.matrix.r0[1] * 1024.0) & 0x7FF
+        md = int(ind_tex_mtx.matrix.r1[1] * 1024.0) & 0x7FF
+        me = int(ind_tex_mtx.matrix.r0[2] * 1024.0) & 0x7FF
+        mf = int(ind_tex_mtx.matrix.r1[2] * 1024.0) & 0x7FF
+        scale_exp = ind_tex_mtx.scale_exponent + 17
+        
+        self.bp_commands.append(BP.IND_MTXA(
+          reg_index=i,
+          ma=ma, mb=mb, s0=(scale_exp >> 0) & 3,
+        ))
+        self.bp_commands.append(BP.IND_MTXB(
+          reg_index=i,
+          mc=mc, md=md, s1=(scale_exp >> 2) & 3,
+        ))
+        self.bp_commands.append(BP.IND_MTXC(
+          reg_index=i,
+          me=me, mf=mf, s2=(scale_exp >> 4) & 3,
+        ))
+    
     for i in range(4):
       # TODO: what's going on here?
       self.bp_commands.append(BP.BP_MASK(
@@ -296,9 +339,11 @@ class MDLEntry(BUNFOE):
       ))
       self.bp_commands.append(BP.RAS1_TREF(
         reg_index=6,
+        channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
       ))
       self.bp_commands.append(BP.RAS1_TREF(
         reg_index=7,
+        channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
       ))
     
     # TODO: what are these?
@@ -325,9 +370,11 @@ class MDLEntry(BUNFOE):
     else:
       val_a = (mat.fog_info.far_z * mat.fog_info.near_z) / ((mat.fog_info.far_z - mat.fog_info.near_z) * (mat.fog_info.end_z - mat.fog_info.start_z))
     if mat.fog_info.far_z == mat.fog_info.near_z:
-      val_b = 0.0
+      #val_b = 0.0
+      val_b = 2.00091553 # TODO unsure, works for agbcursor.bdl though
     else:
       val_b = 2.25715 # mat.fog_info.far_z / (mat.fog_info.far_z - mat.fog_info.near_z)
+      # TODO: need 2.02648926 for fn_body
     # print(val_a)
     if mat.fog_info.end_z == mat.fog_info.start_z:
       # Avoid division by 0
@@ -337,17 +384,32 @@ class MDLEntry(BUNFOE):
     integral_a = fs.bit_cast_float_to_int(val_a)
     integral_b = fs.bit_cast_float_to_int(val_b)
     integral_c = fs.bit_cast_float_to_int(val_c)
+    
+    exponent_a = integral_a >> 23
+    shift_b = 1
+    if exponent_a != 0: # TODO: hack
+      # exponent_a needs to be -2 difference for cl.bdl and hookshot.bdl, but not agbcursor.bdl
+      exponent_a -= 2
+      # shift_b should be 1 for agb_cursor.bdl, 2 for cl.bdl and hookshot.bdl
+      shift_b = 2
+    exponent_a &= 0xFF
+    
     self.bp_commands.append(BP.TEV_FOG_PARAM_0(
       register=BPRegister.TEV_FOG_PARAM_0,
-      mantissa=(integral_a >> 12 & 0x7FF), exponent=((integral_a >> 23 & 0xFF) - 2), sign=(integral_a >> 31 & 1),
+      mantissa=(integral_a >> 12 & 0x7FF),
+      # exponent=((integral_a >> 23 & 0xFF) - 2),
+      exponent=exponent_a,
+      sign=(integral_a >> 31 & 1),
     ))
+    # print(val_a, val_b, val_c)
+    # print(self.bp_commands[-1])
     self.bp_commands.append(BP.TEV_FOG_PARAM_1(
       register=BPRegister.TEV_FOG_PARAM_1,
       magnitude=(integral_b >> 8), # TODO
     ))
     self.bp_commands.append(BP.TEV_FOG_PARAM_2(
       register=BPRegister.TEV_FOG_PARAM_2,
-      shift=2, # TODO
+      shift=shift_b,
     ))
     self.bp_commands.append(BP.TEV_FOG_PARAM_3(
       register=BPRegister.TEV_FOG_PARAM_3,
@@ -434,13 +496,18 @@ class MDLEntry(BUNFOE):
       
       default_tex_matrix = TexMatrix()
       any_non_default = False
-      if tex_matrix.projection != TexMtxProjection.MTX2x4:
+      if tex_matrix.projection != default_tex_matrix.projection:
         any_non_default = True
       if tex_matrix.scale != default_tex_matrix.scale:
         any_non_default = True
       if tex_matrix.translation != default_tex_matrix.translation:
         any_non_default = True
-      if tex_matrix.center != default_tex_matrix.center:
+      if tex_matrix.center.x != default_tex_matrix.center.x:
+        any_non_default = True
+      if tex_matrix.center.y != default_tex_matrix.center.y:
+        any_non_default = True
+      # tex_matrix.center.z seems unused?
+      if tex_matrix.effect_matrix != default_tex_matrix.effect_matrix:
         any_non_default = True
       # TODO: wizzrobes have default scale/translation, and yet they have the TEXMTX command. why?
       if not any_non_default:
@@ -448,24 +515,53 @@ class MDLEntry(BUNFOE):
       
       if tex_matrix.projection == TexMtxProjection.MTX2x4:
         tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])
-        # TODO: rotation
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.scale.x))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-0.0))
+        trans_x = tex_matrix.translation.x
+        trans_y = tex_matrix.translation.y
+        scale_x = tex_matrix.scale.x
+        scale_y = tex_matrix.scale.y
+        sin = math.sin(tex_matrix.rotation * math.pi / 0x8000)
+        cos = math.cos(tex_matrix.rotation * math.pi / 0x8000)
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * cos))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_x * sin))
         tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.translation.x))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * (sin * trans_y - cos * trans_x)))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * sin))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * cos))
         tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.scale.y))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=tex_matrix.translation.y))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_y * (sin * trans_x + cos * trans_y)))
         self.xf_commands.append(tex_mtx_cmd)
       elif tex_matrix.projection == TexMtxProjection.MTX3x4:
-        raise NotImplementedError() # TODO
+        tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])
+        trans_x = tex_matrix.translation.x
+        trans_y = tex_matrix.translation.y
+        scale_x = tex_matrix.scale.x
+        scale_y = tex_matrix.scale.y
+        sin = math.sin(tex_matrix.rotation * math.pi / 0x8000)
+        cos = math.cos(tex_matrix.rotation * math.pi / 0x8000)
+        # TODO: this isn't finished.
+        # need to concat with a projection matrix...?
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * cos))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_x * sin))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * (sin * trans_y - cos * trans_x)))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * sin))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * cos))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_y * (sin * trans_x + cos * trans_y)))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=1.0))
+        self.xf_commands.append(tex_mtx_cmd)
     
     tex_mtx_info_cmd = XF.TEXMTXINFO(register=XFRegister.TEXMTXINFO)
     pos_mtx_info_cmd = XF.POSMTXINFO(register=XFRegister.POSMTXINFO)
+    any_tex_coord_gen_exists = False
     for i, coord_gen in enumerate(mat.tex_coord_gens):
       if coord_gen is None:
         continue
+      any_tex_coord_gen_exists = True
+      
       tex_arg = XF.TEXMTXINFO_Arg()
       tex_arg.unknown_04 = 0
       tex_arg.unknown_07 = 0
@@ -496,8 +592,9 @@ class MDLEntry(BUNFOE):
       
       tex_arg = XF.POSMTXINFO_Arg()
       pos_mtx_info_cmd.args.append(tex_arg)
-    self.xf_commands.append(tex_mtx_info_cmd)
-    self.xf_commands.append(pos_mtx_info_cmd)
+    if any_tex_coord_gen_exists:
+      self.xf_commands.append(tex_mtx_info_cmd)
+      self.xf_commands.append(pos_mtx_info_cmd)
     
     mat_color_cmd = XF.CHAN0_MATCOLOR(register=XFRegister.CHAN0_MATCOLOR)
     for i, mat_color in enumerate(mat.material_colors):
@@ -548,6 +645,39 @@ class MDLEntry(BUNFOE):
       color_chan_cmd.args.append(color_chan_arg)
     self.xf_commands.append(color_chan_cmd)
     
+    if mat.light_colors[0] is not None:
+      # Light pos
+      num_tex_gens_cmd = XF.LIGHT0_LPX(register=XFRegister.LIGHT0_LPX)
+      color = mat.light_colors[0]
+      num_tex_gens_cmd.args.append(XF.LIGHT0_LPX_Arg(value=0.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_LPX_Arg(value=0.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_LPX_Arg(value=0.0))
+      self.xf_commands.append(num_tex_gens_cmd)
+      
+      # Light attenuation
+      num_tex_gens_cmd = XF.LIGHT0_A0(register=XFRegister.LIGHT0_A0)
+      num_tex_gens_cmd.args.append(XF.LIGHT0_A0_Arg(value=1.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_A0_Arg(value=0.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_A0_Arg(value=0.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_A0_Arg(value=1.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_A0_Arg(value=0.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_A0_Arg(value=0.0))
+      self.xf_commands.append(num_tex_gens_cmd)
+      
+      # Light color
+      # TODO: fn_body doesn't match? white/black
+      num_tex_gens_cmd = XF.LIGHT0_COLOR(register=XFRegister.LIGHT0_COLOR)
+      color = mat.light_colors[0]
+      num_tex_gens_cmd.args.append(XF.LIGHT0_COLOR_Arg(color=color.r << 24 | color.g << 16 | color.b << 8 | color.a))
+      self.xf_commands.append(num_tex_gens_cmd)
+      
+      # Light direction
+      num_tex_gens_cmd = XF.LIGHT0_DHX(register=XFRegister.LIGHT0_DHX)
+      num_tex_gens_cmd.args.append(XF.LIGHT0_DHX_Arg(value=0.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_DHX_Arg(value=-1.0))
+      num_tex_gens_cmd.args.append(XF.LIGHT0_DHX_Arg(value=0.0))
+      self.xf_commands.append(num_tex_gens_cmd)
+    
     num_color_chans_cmd = XF.NUMCHAN(register=XFRegister.NUMCHAN)
     num_color_chans_cmd.args.append(XF.NUMCHAN_Arg(
       num_color_chans=mat.num_color_chans,
@@ -559,11 +689,6 @@ class MDLEntry(BUNFOE):
       num_tex_gens=mat.num_tex_gens,
     ))
     self.xf_commands.append(num_tex_gens_cmd)
-    
-    # TODO (example model: fn_body)
-    # LIGHT0_COLOR
-    # LIGHT0_DHX
-    # LIGHT0_LPX
     
     
     # TODO: maybe do this when save() is called?

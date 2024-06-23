@@ -3,6 +3,7 @@ from typing import ClassVar
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, bunfoe, field
+from gclib.bunfoe_types import RGBAu8
 from gclib.j3d_chunks.mdl_command import MDLCommand
 import gclib.gx_enums as GX
 from gclib.gx_enums import MDLCommandType, XFRegister
@@ -153,4 +154,53 @@ class NUMTEXGENS(XFCommand):
 
   VALID_REGISTERS = [
     XFRegister.NUMTEXGENS,
+  ]
+
+@bunfoe
+class LIGHT0_LPX_Arg(XFArgument):
+  value: float = field(bits=32)
+
+@bunfoe
+class LIGHT0_LPX(XFCommand):
+  args: list[LIGHT0_LPX_Arg] = field(length_calculator=lambda inst: inst.num_args_minus_1 + 1, default_factory=list)
+
+  VALID_REGISTERS = [
+    XFRegister.LIGHT0_LPX,
+  ]
+
+@bunfoe
+class LIGHT0_A0_Arg(XFArgument):
+  value: float = field(bits=32)
+
+@bunfoe
+class LIGHT0_A0(XFCommand):
+  args: list[LIGHT0_A0_Arg] = field(length_calculator=lambda inst: inst.num_args_minus_1 + 1, default_factory=list)
+
+  VALID_REGISTERS = [
+    XFRegister.LIGHT0_A0,
+  ]
+
+@bunfoe
+class LIGHT0_COLOR_Arg(XFArgument):
+  # color: RGBAu8 = field(bits=32)
+  color: u32 = field(bits=32) # TODO: should be RGBAu8, but BUNFOE doesn't support that in a bitfield yet
+
+@bunfoe
+class LIGHT0_COLOR(XFCommand):
+  args: list[LIGHT0_COLOR_Arg] = field(length_calculator=lambda inst: inst.num_args_minus_1 + 1, default_factory=list)
+
+  VALID_REGISTERS = [
+    XFRegister.LIGHT0_COLOR,
+  ]
+
+@bunfoe
+class LIGHT0_DHX_Arg(XFArgument):
+  value: float = field(bits=32)
+
+@bunfoe
+class LIGHT0_DHX(XFCommand):
+  args: list[LIGHT0_DHX_Arg] = field(length_calculator=lambda inst: inst.num_args_minus_1 + 1, default_factory=list)
+
+  VALID_REGISTERS = [
+    XFRegister.LIGHT0_DHX,
   ]

@@ -225,7 +225,7 @@ class IndTexAlphaSel(u8, Enum):
   T   = 2
   U   = 3
 
-class IndTexMtxID(u8, Enum):
+class IndTexMtxSel(u8, Enum):
   OFF = 0
   _0  = 1
   _1  = 2
@@ -472,6 +472,7 @@ class BPRegister(u8, Enum):
   IND_MTXA2 = 0x0C
   IND_MTXB2 = 0x0D
   IND_MTXC2 = 0x0E
+  
   IND_IMASK = 0x0F
   
   IND_CMD0 = 0x10
