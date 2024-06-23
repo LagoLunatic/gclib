@@ -1,6 +1,6 @@
 from io import BytesIO
 
-from gclib.yaz0 import Yaz0
+from gclib.yaz0_yay0 import Yaz0, Yay0
 
 class GCLibFileEntry:
   data: BytesIO
@@ -11,6 +11,9 @@ class GCLibFileEntry:
   def decompress_data_if_necessary(self) -> bool:
     if Yaz0.check_is_compressed(self.data):
       self.data = Yaz0.decompress(self.data)
+      return True
+    elif Yay0.check_is_compressed(self.data):
+      self.data = Yay0.decompress(self.data)
       return True
     return False
 
@@ -48,3 +51,5 @@ class GCLibFile:
     
     if Yaz0.check_is_compressed(self.data):
       self.data = Yaz0.decompress(self.data)
+    elif Yay0.check_is_compressed(self.data):
+      self.data = Yay0.decompress(self.data)

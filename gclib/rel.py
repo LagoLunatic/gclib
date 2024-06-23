@@ -1,6 +1,6 @@
 
 from gclib import fs_helpers as fs
-from gclib.yaz0 import Yaz0
+from gclib.yaz0_yay0 import Yaz0
 
 from io import BytesIO
 from enum import Enum
@@ -426,6 +426,9 @@ class RELRelocation:
     fs.write_u8(rel_data, offset+0x02, self.relocation_type.value)
     fs.write_u8(rel_data, offset+0x03, self.section_num_to_relocate_against)
     fs.write_u32(rel_data, offset+0x04, self.symbol_address)
+  
+  def __str__(self):
+    return f"<RELRelocation: {self.relocation_type=} ({self.curr_section_num=:X} {self.relocation_offset=:X}) ({self.section_num_to_relocate_against=:X} {self.symbol_address=:X})>"
 
 class RELRelocationType(Enum):
   R_PPC_NONE = 0x00

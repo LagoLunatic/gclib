@@ -16,6 +16,7 @@ Below is a table of what is supported for each format. A '~' indicates partial s
 | REL    | ✓ | ✓ | ✓ | Relocatable object files |
 | RARC   | ✓ | ✓ | ✓ | Archives |
 | Yaz0   | ✓ | ✓ | ✓ | RLE compression |
+| Yay0   | ✓ | ✓ | ✓ | RLE compression |
 | BTI    | ✓ | ✓ | ✓ | Images |
 | J3D    | ~ | ~ | ✕ | Container for various 3D formats |
 | JPC    | ~ | ~ | ✕ | Particle effect archives |
@@ -27,5 +28,5 @@ Below is a table of what is supported for each format. A '~' indicates partial s
 To install just the pure Python implementation, run:  
 `pip install "gclib @ git+https://github.com/LagoLunatic/gclib.git"`
 
-To install a faster version of certain functions written in C (such as Yaz0 encoding), instead run:  
+To install a faster version of certain functions written in C (such as compressing Yaz0/Yay0), instead run:  
 `pip install "gclib[speedups] @ git+https://github.com/LagoLunatic/gclib.git"`

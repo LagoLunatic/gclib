@@ -14,12 +14,12 @@ classifiers = [
 
 requires-python = ">=3.11"
 dependencies = [
-  "Pillow>=10.0.1",
+  "Pillow>=10.2.0",
 ]
 
 [project.optional-dependencies]
 speedups = [
-  "PyFastBTI @ git+https://github.com/LagoLunatic/PyFastBTI.git@master",
-  "PyFastTextureUtils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@master",
-  "PyFastYaz0 @ git+https://github.com/LagoLunatic/PyFastYaz0.git@master",
+  "PyFastBTI @ git+https://github.com/LagoLunatic/PyFastBTI.git@da01c14562a4711e031fd0a01c52d2131035e228",
+  "PyFastTextureUtils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@786d7cda8210ec2ad01f3397059ebf4d24365391",
+  "PyFastYaz0Yay0 @ git+https://github.com/LagoLunatic/PyFastYaz0Yay0.git@77cfa8b92cde95e8928a68e499c1d8d719e0c7ea",
 ]

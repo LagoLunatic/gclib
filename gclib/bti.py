@@ -55,6 +55,9 @@ class BTI(GCLibFile):
     self.lod_bias = fs.read_u16(data, header_offset+0x1A)
     
     self.image_data_offset = fs.read_u32(data, header_offset+0x1C)
+    
+    if self.mipmap_count == 0:
+      self.mipmap_count = 1
   
   def save_header_changes(self):
     fs.write_u8(self.data, self.header_offset+0, self.image_format.value)
@@ -76,7 +79,7 @@ class BTI(GCLibFile):
     fs.write_u8(self.data, self.header_offset+0x15, self.mag_filter.value)
     
     assert self.mipmap_count <= self.get_max_valid_mipmap_count()
-    self.max_lod = (self.mipmap_count-1)*8
+    self.max_lod = min(0xFF, max(0, (self.mipmap_count-1)*8))
     fs.write_u8(self.data, self.header_offset+0x16, self.min_lod)
     fs.write_u8(self.data, self.header_offset+0x17, self.max_lod)
     fs.write_u8(self.data, self.header_offset+0x18, self.mipmap_count)

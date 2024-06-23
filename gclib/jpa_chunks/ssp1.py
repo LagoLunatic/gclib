@@ -7,9 +7,10 @@ from gclib.bunfoe import BUNFOE, bunfoe, field
 from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16
 
 class SSP1(JPAChunk):
-  def __new__(cls, data, version: JPACVersion):
+  def __new__(cls, *args, **kwargs):
     if cls != SSP1:
       return super().__new__(cls)
+    data, version = args
     if version == JPACVersion.JPAC1_00:
       return SSP1_JPC100(data, version)
     elif version == JPACVersion.JPAC2_10:

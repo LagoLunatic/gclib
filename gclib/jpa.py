@@ -5,7 +5,7 @@ from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
 from gclib.jpa_enums import JPACVersion
 from gclib.jpa_chunks.bsp1 import BSP1
-from gclib.jpa_chunks.ssp1 import SSP1
+from gclib.jpa_chunks.ssp1 import SSP1, SSP1_JPC100, SSP1_JPC210
 from gclib.jpa_chunks.tdb1 import TDB1
 
 PARTICLE_HEADER_SIZE = {
@@ -32,6 +32,10 @@ class JParticle:
   }
   
   def __init__(self, jpc_data, particle_offset, jpac_version: JPACVersion):
+    self.bsp1 = None
+    self.ssp1 = None
+    self.tdb1 = None
+    
     self.version = jpac_version
     
     if self.version == JPACVersion.JPAC1_00:
@@ -126,3 +130,23 @@ class JParticle:
       fs.write_u32(self.data, 0x10, self.size)
       
       # TODO: write back all header changes.
+
+class JParticle100(JParticle):
+  # bem1: BEM1
+  bsp1: BSP1
+  # esp1: Optional[ESP1]
+  # etx1: Optional[ETX1]
+  ssp1: Optional[SSP1_JPC100]
+  # fld1: list[FLD1]
+  # kfa1: list[KFA1]
+  tdb1: Optional[TDB1]
+
+class JParticle210:
+  # bem1: BEM1
+  bsp1: BSP1
+  # esp1: Optional[ESP1]
+  # etx1: Optional[ETX1]
+  ssp1: Optional[SSP1_JPC210]
+  # fld1: list[FLD1]
+  # kfa1: list[KFA1]
+  tdb1: Optional[TDB1]
