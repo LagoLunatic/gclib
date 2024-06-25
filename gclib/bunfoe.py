@@ -30,6 +30,9 @@ class _UNREAD_TYPE:
 UNREAD = _UNREAD_TYPE()
 
 
+PRINT_INVALID_VALUE_WARNINGS = True
+
+
 class Field(dataclasses.Field):
   __slots__ = ('name', 'type', 'default', 'default_factory', 'repr',
                'hash', 'init', 'compare', 'metadata', 'kw_only',
@@ -350,14 +353,15 @@ class BUNFOE:
     
     if issubclass(field_type, bool):
       # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
-      if raw_value not in [0, 1]:
+      if PRINT_INVALID_VALUE_WARNINGS and raw_value not in [0, 1]:
         print(f"Boolean should be zero or one, but got value: {raw_value}")
     
     if issubclass(field_type, Enum):
       if raw_value in field_type:
         value = field_type(raw_value)
       else:
-        print(f"Invalid value for enum {field_type}: {raw_value}")
+        if PRINT_INVALID_VALUE_WARNINGS:
+          print(f"Invalid value for enum {field_type}: {raw_value}")
         value = raw_value
     elif issubclass(field_type, int) or issubclass(field_type, bool):
       value = field_type(raw_value)
@@ -375,7 +379,7 @@ class BUNFOE:
     elif issubclass(field_type, bool):
       raw_value = self.read_value(u8, offset)
       # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
-      if raw_value not in [0, 1]:
+      if PRINT_INVALID_VALUE_WARNINGS and raw_value not in [0, 1]:
         print(f"Boolean should be zero or one, but got value: {raw_value}")
       return bool(raw_value)
     elif issubclass(field_type, u16Rot):
@@ -390,7 +394,8 @@ class BUNFOE:
           if raw_value in field_type:
             return field_type(raw_value)
           else:
-            print(f"Invalid value for enum {field_type}: {raw_value}")
+            if PRINT_INVALID_VALUE_WARNINGS:
+              print(f"Invalid value for enum {field_type}: {raw_value}")
             return raw_value
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
