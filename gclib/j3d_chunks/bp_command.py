@@ -58,8 +58,8 @@ class MDLFilterMode(Enum):
   Nearest              = 0
   Linear               = 4
   NearestMipmapNearest = 1
-  NearestMipmapLinear  = 2
-  LinearMipmapNearest  = 5
+  NearestMipmapLinear  = 5
+  LinearMipmapNearest  = 2
   LinearMipmapLinear   = 6
 
 @bunfoe
@@ -129,6 +129,9 @@ class TX_LOADTLUT(BPCommand):
 class SU_SSIZE(BPCommand):
   width_minus_1: u16 = field(bits=16)
   unknown      : u8  = field(bits=1, default=0, assert_default=True)
+  # TODO:
+  # bias: 1 bit
+  # wrap: 1 bit?
   
   VALID_REGISTERS = [
     BPRegister.SU_SSIZE0, BPRegister.SU_SSIZE1, BPRegister.SU_SSIZE2, BPRegister.SU_SSIZE3,
@@ -139,6 +142,9 @@ class SU_SSIZE(BPCommand):
 class SU_TSIZE(BPCommand):
   height_minus_1: u16 = field(bits=16)
   unknown       : u8  = field(bits=1, default=0, assert_default=True)
+  # TODO:
+  # bias: 1 bit
+  # wrap: 1 bit?
   
   VALID_REGISTERS = [
     BPRegister.SU_TSIZE0, BPRegister.SU_TSIZE1, BPRegister.SU_TSIZE2, BPRegister.SU_TSIZE3,
@@ -226,6 +232,17 @@ class IND_IMASK(BPCommand):
   
   VALID_REGISTERS = [
     BPRegister.IND_IMASK,
+  ]
+
+@bunfoe
+class RAS1_SS0(BPCommand):
+  scale_s_0 : GX.IndirectTexScale = field(bits=4, default=GX.IndirectTexScale._1)
+  scale_t_0 : GX.IndirectTexScale = field(bits=4, default=GX.IndirectTexScale._1)
+  scale_s_1 : GX.IndirectTexScale = field(bits=4, default=GX.IndirectTexScale._1)
+  scale_t_1 : GX.IndirectTexScale = field(bits=4, default=GX.IndirectTexScale._1)
+
+  VALID_REGISTERS = [
+    BPRegister.RAS1_SS0, BPRegister.RAS1_SS1,
   ]
 
 @bunfoe

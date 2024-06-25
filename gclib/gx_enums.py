@@ -501,6 +501,7 @@ class BPRegister(u8, Enum):
   
   RAS1_SS0 = 0x25
   RAS1_SS1 = 0x26
+  
   RAS1_IREF = 0x27
   
   RAS1_TREF0 = 0x28

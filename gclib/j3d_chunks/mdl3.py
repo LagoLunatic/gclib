@@ -1,6 +1,7 @@
 from enum import Enum
 from io import BytesIO
 import math
+import numpy as np
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
@@ -112,11 +113,19 @@ class MDLEntry(BUNFOE):
         height_minus_1=tex.height-1,
         format=tex.image_format,
       ))
+      mag_filter = tex.mag_filter
+      if mag_filter != GX.FilterMode.Linear:
+        mag_filter = GX.FilterMode.Nearest
+      min_filter = BP.MDLFilterMode[tex.min_filter.name]
+      lod_bias = int(tex.lod_bias * 0.01 * 32.0) & 0xFF
       self.bp_commands.append(BP.TX_SETMODE0(
         reg_index=i,
         wrap_s=tex.wrap_s, wrap_t=tex.wrap_t,
-        mag_filter=tex.mag_filter, min_filter=BP.MDLFilterMode[tex.min_filter.name],
-        diag_lod=True, lod_bias=0, max_aniso=0, lod_clamp=False, # TODO unimplemented
+        mag_filter=mag_filter, min_filter=min_filter,
+        diag_lod=True, # TODO: invert BTI field 0x11
+        lod_bias=lod_bias,
+        max_aniso=0, # TODO: BTI field 0x13
+        lod_clamp=False, # TODO: BTI field 0x12
       ))
       self.bp_commands.append(BP.TX_SETMODE1(
         reg_index=i,
@@ -334,20 +343,55 @@ class MDLEntry(BUNFOE):
           me=me, mf=mf, s2=(scale_exp >> 4) & 3,
         ))
     
+    if mat.tex_indirect.enable:
+      for i in range(0, mat.tex_indirect.num_ind_tex_stages, 2):
+        ind_tex_scale_0 = mat.tex_indirect.scales[i+0]
+        ind_tex_scale_1 = mat.tex_indirect.scales[i+1]
+        self.bp_commands.append(BP.RAS1_SS0(
+          reg_index=i//2,
+          scale_s_0=ind_tex_scale_0.scale_s, scale_t_0=ind_tex_scale_0.scale_t,
+          scale_s_1=ind_tex_scale_1.scale_s, scale_t_1=ind_tex_scale_1.scale_t,
+        ))
+    
     for i in range(4):
-      # TODO: what's going on here?
       self.bp_commands.append(BP.BP_MASK(
         register=BPRegister.BP_MASK,
         mask=0x03FFFF,
       ))
-      self.bp_commands.append(BP.RAS1_TREF(
-        reg_index=6,
-        channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
-      ))
-      self.bp_commands.append(BP.RAS1_TREF(
-        reg_index=7,
-        channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
-      ))
+      
+      tev_order = mat.tex_indirect.tev_orders[i]
+      if tev_order.tex_coord_id == GX.TexCoordID.TEXCOORD_NULL:
+        # Reproduces a bug in the original code.
+        # The calculation for which registers to use work like this:
+        # 0x30 + id * 2
+        # 0x31 + id * 2
+        # Where 0x30 is SU_SSIZE0 and 0x31 is SU_TSIZE0.
+        # When the tex coord ID is NULL (0xFF), the calculation winds up like this:
+        # 0x30 + 0xFF * 2 = 0x22E = (u8)0x2E = RAS1_TREF6
+        # 0x31 + 0xFF * 2 = 0x22F = (u8)0x2F = RAS1_TREF7
+        # So to emulate this, we add the bugged RAS1_TREF commands.
+        self.bp_commands.append(BP.RAS1_TREF(
+          reg_index=6,
+          channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
+        ))
+        self.bp_commands.append(BP.RAS1_TREF(
+          reg_index=7,
+          channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
+        ))
+      else:
+        tex_index = tev_order.tex_coord_id.value
+        tex = tex1.textures[mat.textures[tex_index]] # TODO unsure
+        tex_width = tex.width
+        tex_height = tex.height
+        
+        self.bp_commands.append(BP.SU_SSIZE(
+          reg_index=tev_order.tex_coord_id,
+          width_minus_1=tex_width-1,
+        ))
+        self.bp_commands.append(BP.SU_TSIZE(
+          reg_index=tev_order.tex_coord_id,
+          height_minus_1=tex_height-1,
+        ))
     
     tev_orders = mat.tex_indirect.tev_orders
     self.bp_commands.append(BP.RAS1_IREF(
@@ -505,46 +549,35 @@ class MDLEntry(BUNFOE):
       if not any_non_default:
         continue
       
-      if tex_matrix.projection == TexMtxProjection.MTX2x4:
-        tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])
-        trans_x = tex_matrix.translation.x
-        trans_y = tex_matrix.translation.y
-        scale_x = tex_matrix.scale.x
-        scale_y = tex_matrix.scale.y
-        sin = math.sin(tex_matrix.rotation * math.pi / 0x8000)
-        cos = math.cos(tex_matrix.rotation * math.pi / 0x8000)
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * cos))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_x * sin))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * (sin * trans_y - cos * trans_x)))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * sin))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * cos))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_y * (sin * trans_x + cos * trans_y)))
-        self.xf_commands.append(tex_mtx_cmd)
-      elif tex_matrix.projection == TexMtxProjection.MTX3x4:
-        tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])
-        trans_x = tex_matrix.translation.x
-        trans_y = tex_matrix.translation.y
-        scale_x = tex_matrix.scale.x
-        scale_y = tex_matrix.scale.y
-        sin = math.sin(tex_matrix.rotation * math.pi / 0x8000)
-        cos = math.cos(tex_matrix.rotation * math.pi / 0x8000)
-        # TODO: this isn't finished.
-        # need to concat with a projection matrix...?
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * cos))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_x * sin))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_x * (sin * trans_y - cos * trans_x)))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * sin))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=scale_y * cos))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=-scale_y * (sin * trans_x + cos * trans_y)))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=0.0))
-        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=1.0))
-        self.xf_commands.append(tex_mtx_cmd)
+      tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])
+      
+      trans_x  = np.float32(tex_matrix.translation.x)
+      trans_y  = np.float32(tex_matrix.translation.y)
+      scale_x  = np.float32(tex_matrix.scale.x)
+      scale_y  = np.float32(tex_matrix.scale.y)
+      tiling_x = np.float32(tex_matrix.center.x)
+      tiling_y = np.float32(tex_matrix.center.y)
+      angle    = np.float32(tex_matrix.rotation)
+      
+      sin = np.float32(math.sin(angle * math.pi / 0x8000))
+      cos = np.float32(math.cos(angle * math.pi / 0x8000))
+      
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(scale_x * cos)))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(-scale_x * sin)))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(0.0)))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(tiling_x + scale_x * (sin * (trans_y + tiling_y) - cos * (trans_x + tiling_x)))))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(scale_y * sin)))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(scale_y * cos)))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(0.0)))
+      tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(tiling_y + -scale_y * (sin * (trans_x + tiling_x) + cos * (trans_y + tiling_y)))))
+      
+      if tex_matrix.projection == TexMtxProjection.MTX3x4:
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(0.0)))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(0.0)))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(0.0)))
+        tex_mtx_cmd.args.append(XF.TEXMTX_Arg(value=float(1.0)))
+      
+      self.xf_commands.append(tex_mtx_cmd)
     
     tex_mtx_info_cmd = XF.TEXMTXINFO(register=XFRegister.TEXMTXINFO)
     pos_mtx_info_cmd = XF.POSMTXINFO(register=XFRegister.POSMTXINFO)

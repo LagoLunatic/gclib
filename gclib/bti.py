@@ -52,7 +52,7 @@ class BTI(GCLibFile):
     self.max_lod = fs.read_u8(data, header_offset+0x17)
     self.mipmap_count = fs.read_u8(data, header_offset+0x18)
     self.unknown_3 = fs.read_u8(data, header_offset+0x19)
-    self.lod_bias = fs.read_u16(data, header_offset+0x1A)
+    self.lod_bias = fs.read_s16(data, header_offset+0x1A)
     
     self.image_data_offset = fs.read_u32(data, header_offset+0x1C)
     
@@ -84,7 +84,7 @@ class BTI(GCLibFile):
     fs.write_u8(self.data, self.header_offset+0x17, self.max_lod)
     fs.write_u8(self.data, self.header_offset+0x18, self.mipmap_count)
     fs.write_u8(self.data, self.header_offset+0x19, self.unknown_3)
-    fs.write_u16(self.data, self.header_offset+0x1A, self.lod_bias)
+    fs.write_s16(self.data, self.header_offset+0x1A, self.lod_bias)
     
     fs.write_u32(self.data, self.header_offset+0x1C, self.image_data_offset)
   
