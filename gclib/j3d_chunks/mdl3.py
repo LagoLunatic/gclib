@@ -130,8 +130,9 @@ class MDLEntry(BUNFOE):
         register=BPRegister.BP_MASK,
         mask=0xFFFF00,
       ))
-      self.bp_commands.append(BP.BPCommand(
+      self.bp_commands.append(BP.IND_IMASK(
         register=BPRegister.IND_IMASK,
+        mask=0,
       ))
       # https://github.com/dolphin-emu/dolphin/blob/6309aa00109f81a2e9f2281d1fced174eccef8f8/Source/Core/VideoCommon/BPStructs.cpp#L388
       # src << 5
@@ -154,8 +155,9 @@ class MDLEntry(BUNFOE):
         register=BPRegister.BP_MASK,
         mask=0xFFFF00,
       ))
-      self.bp_commands.append(BP.BPCommand(
+      self.bp_commands.append(BP.IND_IMASK(
         register=BPRegister.IND_IMASK,
+        mask=0,
       ))
       self.bp_commands.append(BP.TX_LOADTLUT(
         reg_index=i,
