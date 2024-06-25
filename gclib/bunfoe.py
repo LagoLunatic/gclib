@@ -353,7 +353,13 @@ class BUNFOE:
       if raw_value not in [0, 1]:
         print(f"Boolean should be zero or one, but got value: {raw_value}")
     
-    if issubclass(field_type, int) or issubclass(field_type, Enum) or issubclass(field_type, bool):
+    if issubclass(field_type, Enum):
+      if raw_value in field_type:
+        value = field_type(raw_value)
+      else:
+        print(f"Invalid value for enum {field_type}: {raw_value}")
+        value = raw_value
+    elif issubclass(field_type, int) or issubclass(field_type, bool):
       value = field_type(raw_value)
     elif issubclass(field_type, float):
       value = field_type(fs.bit_cast_int_to_float(raw_value))
@@ -381,7 +387,11 @@ class BUNFOE:
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           raw_value = self.read_value(base_class, offset)
-          return field_type(raw_value)
+          if raw_value in field_type:
+            return field_type(raw_value)
+          else:
+            print(f"Invalid value for enum {field_type}: {raw_value}")
+            return raw_value
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       value = field_type(self.data)
@@ -521,7 +531,12 @@ class BUNFOE:
     elif issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
-          raw_value = value.value
+          if isinstance(value, field_type):
+            raw_value = value.value
+          elif isinstance(value, int):
+            raw_value = value
+          else:
+            raise TypeError(f"Invalid value {repr(value)}, expected to have type {field_type} but was {type(value)} instead.")
           self.save_value(base_class, offset, raw_value)
           return
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
