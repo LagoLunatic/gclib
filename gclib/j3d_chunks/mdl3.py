@@ -422,15 +422,21 @@ class MDLEntry(BUNFOE):
       mask=mask,
     ))
     
-    if mat.fog_info.far_z == mat.fog_info.near_z or mat.fog_info.end_z == mat.fog_info.start_z:
+    # Use 32-bit floats instead of Python's default of 64-bit floats in order to intentionally
+    # reduce precision to what the original files used.
+    start_z = np.float32(mat.fog_info.start_z)
+    end_z   = np.float32(mat.fog_info.end_z)
+    near_z  = np.float32(mat.fog_info.near_z)
+    far_z   = np.float32(mat.fog_info.far_z)
+    if far_z == near_z or end_z == start_z:
       # Avoid division by 0
-      val_a = 0.0
-      val_b = 0.5
-      val_c = 0.0
+      val_a = np.float32(0.0)
+      val_b = np.float32(0.5)
+      val_c = np.float32(0.0)
     else:
-      val_a = (mat.fog_info.far_z * mat.fog_info.near_z) / ((mat.fog_info.far_z - mat.fog_info.near_z) * (mat.fog_info.end_z - mat.fog_info.start_z))
-      val_b = mat.fog_info.far_z / (mat.fog_info.far_z - mat.fog_info.near_z)
-      val_c = mat.fog_info.start_z / (mat.fog_info.end_z - mat.fog_info.start_z)
+      val_a = (far_z * near_z) / ((far_z - near_z) * (end_z - start_z))
+      val_b = far_z / (far_z - near_z)
+      val_c = start_z / (end_z - start_z)
     
     mantissa = val_b
     exponent = 1
@@ -586,30 +592,38 @@ class MDLEntry(BUNFOE):
       any_tex_coord_gen_exists = True
       
       tex_arg = XF.TEXMTXINFO_Arg()
-      tex_arg.unknown_04 = 0
-      tex_arg.unknown_07 = 0
+      tex_arg.tex_gen_type = XF.TexGenType.Regular
+      tex_arg.source_row = XF.SourceRow.Geom
       if coord_gen.source in [GX.TexGenSrc.POS, GX.TexGenSrc.NRM, GX.TexGenSrc.BINRM, GX.TexGenSrc.TANGENT]:
-        tex_arg.unknown_02 = True
+        tex_arg.input_form = XF.TexInputForm.ABC1
       
       if GX.TexGenType.BUMP0 <= coord_gen.type_ <= GX.TexGenType.BUMP7:
-        tex_arg.unknown_04 = 1
-        tex_arg.unknown_07 = 5
-        tex_arg.unknown_12 = coord_gen.source.value - GX.TexGenSrc.TEX0.value
-        tex_arg.unknown_15 = coord_gen.type_.value - GX.TexGenType.BUMP0.value
+        tex_arg.tex_gen_type = XF.TexGenType.EmbossMap
+        tex_arg.source_row = XF.SourceRow.Tex0
+        tex_arg.emboss_source_shift = coord_gen.source.value - GX.TexGenSrc.TEX0.value
+        tex_arg.emboss_light_shift = coord_gen.type_.value - GX.TexGenType.BUMP0.value
       elif coord_gen.type_ == GX.TexGenType.SRTG:
         if coord_gen.source == GX.TexGenSrc.COLOR0:
-          tex_arg.unknown_04 = 2
+          tex_arg.tex_gen_type = XF.TexGenType.Color0
         else:
-          tex_arg.unknown_04 = 3
-        tex_arg.unknown_07 = 2
-      elif coord_gen.type_ == GX.TexGenType.MTX2x4:
-        tex_arg.unknown_04 = 0
-        if coord_gen.source in [GX.TexGenSrc.POS, GX.TexGenSrc.NRM]:
-          tex_arg.unknown_07 = coord_gen.source.value
+          tex_arg.tex_gen_type = XF.TexGenType.Color1
+        
+        tex_arg.source_row = XF.SourceRow.Colors
+      elif coord_gen.type_ in [GX.TexGenType.MTX2x4, GX.TexGenType.MTX3x4]:
+        tex_arg.tex_gen_type = XF.TexGenType.Regular
+        
+        if coord_gen.source == GX.TexGenSrc.POS:
+          tex_arg.source_row = XF.SourceRow.Geom
+        elif coord_gen.source == GX.TexGenSrc.NRM:
+          tex_arg.source_row = XF.SourceRow.Normal
+        elif coord_gen.source >= GX.TexGenSrc.TEX0 and coord_gen.source <= GX.TexGenSrc.TEX7:
+          tex_idx = coord_gen.source - GX.TexGenSrc.TEX0
+          tex_arg.source_row = XF.SourceRow(XF.SourceRow.Tex0.value + tex_idx)
         else:
-          tex_arg.unknown_07 = coord_gen.source.value + 1
-      elif coord_gen.type_ == GX.TexGenType.MTX3x4:
-        tex_arg.unknown_01 = True
+          raise NotImplementedError()
+        
+        if coord_gen.type_ == GX.TexGenType.MTX3x4:
+          tex_arg.projection = XF.TexSize.STQ
       
       tex_mtx_info_cmd.args.append(tex_arg)
       

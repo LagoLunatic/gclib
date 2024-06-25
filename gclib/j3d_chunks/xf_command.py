@@ -1,4 +1,5 @@
 from typing import ClassVar
+from enum import Enum
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
@@ -47,17 +48,46 @@ class TEXMTX(XFCommand):
     XFRegister.TEXMTX8, XFRegister.TEXMTX9,
   ]
 
+class TexSize(Enum):
+  ST  = 0
+  STQ = 1
+
+class TexInputForm(Enum):
+  AB11 = 0
+  ABC1 = 1
+
+class TexGenType(Enum):
+  Regular   = 0
+  EmbossMap = 1
+  Color0    = 2
+  Color1    = 3
+
+class SourceRow(Enum):
+  Geom      = 0
+  Normal    = 1
+  Colors    = 2
+  BinormalT = 3
+  BinormalB = 4
+  Tex0      = 5
+  Tex1      = 6
+  Tex2      = 7
+  Tex3      = 8
+  Tex4      = 9
+  Tex5      = 10
+  Tex6      = 11
+  Tex7      = 12
+
 @bunfoe
 class TEXMTXINFO_Arg(XFArgument):
-  unknown_00: u8   = field(bits=1, default=0, assert_default=True)
-  unknown_01: bool = field(bits=1, default=False)
-  unknown_02: bool = field(bits=1, default=False)
-  unknown_03: u8   = field(bits=1, default=0, assert_default=True)
-  unknown_04: u8   = field(bits=3)
-  unknown_07: u8   = field(bits=5)
-  unknown_12: u8   = field(bits=3, default=5)
-  unknown_15: u8   = field(bits=3, default=0)
-  unknown_18: u16  = field(bits=14, default=0, assert_default=True)
+  unknown_00         : u8           = field(bits=1, default=0, assert_default=True)
+  projection         : TexSize      = field(bits=1, default=TexSize.ST)
+  input_form         : TexInputForm = field(bits=1, default=TexInputForm.AB11)
+  unknown_03         : u8           = field(bits=1, default=0, assert_default=True)
+  tex_gen_type       : TexGenType   = field(bits=3)
+  source_row         : SourceRow    = field(bits=5)
+  emboss_source_shift: u8           = field(bits=3, default=5)
+  emboss_light_shift : u8           = field(bits=3, default=0)
+  unknown_18         : u16          = field(bits=14, default=0, assert_default=True)
 
 @bunfoe
 class TEXMTXINFO(XFCommand):
