@@ -320,6 +320,8 @@ class BUNFOE:
       bit_offset += field.bits
     
     setattr(self, field.name, value)
+    if field.assert_default:
+      assert value == field.default, f"Field {field.name} expected value {field.default}, but got {value}"
     return bit_offset
   
   def read_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int) -> tuple[list, int]:
