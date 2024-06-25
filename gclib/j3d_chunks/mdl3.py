@@ -181,8 +181,12 @@ class MDLEntry(BUNFOE):
         ras1_cmd = BP.RAS1_TREF(
           reg_index=i//2,
           tex_map_0=GX.TexMapID.TEXMAP7, tex_map_1=GX.TexMapID.TEXMAP7,
-          # fn_body seems to want COLOR_ZERO here by default for null entries that are paired with non-null entries
-          # but then cl and gnd want COLOR0 in that situation instead
+          # This channel_id_1 value can different from the ones from the original game if the
+          # material has an odd number of TEV orders. This is because the RAS1_TREF command includes
+          # a pair of TEV orders, even if the second one doesn't actually exist, and a bug in the
+          # code causes it to do an out-of-bounds read to get the next TEV order if the second one
+          # doesn't actually exist. Known values that can appear here are:
+          # 0x00 (COLOR0) and 0x07 (COLOR_ZERO)
           channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
         )
         cmds_for_order_pair = []
@@ -205,17 +209,24 @@ class MDLEntry(BUNFOE):
           tex = tex1.textures[mat.textures[tex_index]] # TODO unsure
           tex_width = tex.width
           tex_height = tex.height
-          
-          if i % 2 == 0:
-            ras1_cmd.tex_map_0 = tev_order.tex_map_id
-            ras1_cmd.tex_coord_0 = tev_order.tex_coord_id
-            ras1_cmd.unknown_1_0 = 1
-            ras1_cmd.channel_id_0 = BP.MDLColorChannelID[tev_order.channel_id.name]
-          else:
-            ras1_cmd.tex_map_1 = tev_order.tex_map_id
-            ras1_cmd.tex_coord_1 = tev_order.tex_coord_id
-            ras1_cmd.unknown_1_1 = 1
-            ras1_cmd.channel_id_1 = BP.MDLColorChannelID[tev_order.channel_id.name]
+        
+        tex_map_id = GX.TexMapID(tev_order.tex_map_id & 0x07)
+        enable = tev_order.tex_map_id != GX.TexMapID.TEXMAP_NULL and (tev_order.tex_map_id & 0x100) == 0
+        if tev_order.tex_coord_id > GX.TexCoordID.TEXCOORD7:
+          tex_coord_id = GX.TexCoordID.TEXCOORD0
+        else:
+          tex_coord_id = GX.TexCoordID(tev_order.tex_coord_id & 0x07)
+        channel_id = BP.MDLColorChannelID[tev_order.channel_id.name]
+        if i % 2 == 0:
+          ras1_cmd.tex_map_0 = tex_map_id
+          ras1_cmd.tex_coord_0 = tex_coord_id
+          ras1_cmd.enable_0 = enable
+          ras1_cmd.channel_id_0 = channel_id
+        else:
+          ras1_cmd.tex_map_1 = tex_map_id
+          ras1_cmd.tex_coord_1 = tex_coord_id
+          ras1_cmd.enable_1 = enable
+          ras1_cmd.channel_id_1 = channel_id
       
       cmds_for_order_pair.append(BP.BP_MASK(
         register=BPRegister.BP_MASK,
@@ -266,7 +277,7 @@ class MDLEntry(BUNFOE):
         reg_index=i,
         color_in_a=tev_stage.color_in_a, color_in_b=tev_stage.color_in_b,
         color_in_c=tev_stage.color_in_c, color_in_d=tev_stage.color_in_d,
-        color_op=tev_stage.color_op, color_bias=tev_stage.color_bias,
+        color_op=GX.TevOp(tev_stage.color_op&0x01), color_bias=tev_stage.color_bias,
         color_scale=tev_stage.color_scale, color_clamp=tev_stage.color_clamp,
         color_reg_id=tev_stage.color_reg_id,
       ))
@@ -274,7 +285,7 @@ class MDLEntry(BUNFOE):
         reg_index=i,
         alpha_in_a=tev_stage.alpha_in_a, alpha_in_b=tev_stage.alpha_in_b,
         alpha_in_c=tev_stage.alpha_in_c, alpha_in_d=tev_stage.alpha_in_d,
-        alpha_op=tev_stage.alpha_op, alpha_bias=tev_stage.alpha_bias,
+        alpha_op=GX.TevOp(tev_stage.alpha_op&0x01), alpha_bias=tev_stage.alpha_bias,
         alpha_scale=tev_stage.alpha_scale, alpha_clamp=tev_stage.alpha_clamp,
         alpha_reg_id=tev_stage.alpha_reg_id,
         ras_sel=swap_mode.ras_sel, tex_sel=swap_mode.tex_sel,
@@ -302,6 +313,7 @@ class MDLEntry(BUNFOE):
     for i, swap_mode_table in enumerate(mat.tev_swap_mode_tables[:4]):
       ksel_cmd = ksel_cmds[i*2+0]
       if swap_mode_table is None:
+        # Note: The original code read out of bounds in this case. We don't emulate this.
         ksel_cmd.r_or_b = 0
         ksel_cmd.g_or_a = 1
       else:
@@ -310,6 +322,7 @@ class MDLEntry(BUNFOE):
       self.bp_commands.append(ksel_cmd)
       ksel_cmd = ksel_cmds[i*2+1]
       if swap_mode_table is None:
+        # Note: The original code read out of bounds in this case. We don't emulate this.
         ksel_cmd.r_or_b = 2
         ksel_cmd.g_or_a = 3
       else:
@@ -459,16 +472,16 @@ class MDLEntry(BUNFOE):
       r=color.r, g=color.g, b=color.b,
     ))
     
+    if mat.fog_info.enable:
+      for i in range(5):
+        self.bp_commands.append(BP.FOG_RANGE_ADJ(
+          reg_index=i,
+          hi=mat.fog_info.range_adjustments[i*2+0], lo=mat.fog_info.range_adjustments[i*2+1],
+        ))
     self.bp_commands.append(BP.FOG_RANGE(
       register=BPRegister.FOG_RANGE,
-      center=mat.fog_info.center+342, enabled=False,
+      center=mat.fog_info.center+342, enabled=mat.fog_info.enable,
     ))
-    # TODO
-    # for i in range(5):
-    #   self.bp_commands.append(FOG_RANGE_ADJ(
-    #     reg_index=i,
-    #     hi=0, lo=0,
-    #   ))
     
     self.bp_commands.append(BP.TEV_ALPHAFUNC(
       register=BPRegister.TEV_ALPHAFUNC,
@@ -479,7 +492,7 @@ class MDLEntry(BUNFOE):
     
     self.bp_commands.append(BP.BP_MASK(
       register=BPRegister.BP_MASK,
-      mask=0x001FE7,
+      mask=0x001FE7, # TODO: 0x001FE7 in WW, 0x00FFE7 in TP?
     ))
     cmode0_cmd = BP.PE_CMODE0(reg_index=0)
     if mat.blend_mode.mode == GX.BlendMode.Blend:
@@ -530,23 +543,8 @@ class MDLEntry(BUNFOE):
       if tex_matrix is None:
         break
       
-      default_tex_matrix = TexMatrix()
-      any_non_default = False
-      if tex_matrix.projection != default_tex_matrix.projection:
-        any_non_default = True
-      if tex_matrix.scale != default_tex_matrix.scale:
-        any_non_default = True
-      if tex_matrix.translation != default_tex_matrix.translation:
-        any_non_default = True
-      if tex_matrix.center.x != default_tex_matrix.center.x:
-        any_non_default = True
-      if tex_matrix.center.y != default_tex_matrix.center.y:
-        any_non_default = True
-      # tex_matrix.center.z seems unused?
-      if tex_matrix.effect_matrix != default_tex_matrix.effect_matrix:
-        any_non_default = True
-      # TODO: wizzrobes have default scale/translation, and yet they have the TEXMTX command. why?
-      if not any_non_default:
+      # Only write the tex matrix if it's used by at least one tex coord gen.
+      if not any(gen is not None and gen.tex_gen_matrix == GX.TexGenMatrix.TEXMTX0+i*3 for gen in mat.tex_coord_gens):
         continue
       
       tex_mtx_cmd = XF.TEXMTX(register=XF.TEXMTX.VALID_REGISTERS[i])

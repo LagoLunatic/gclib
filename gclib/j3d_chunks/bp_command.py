@@ -189,12 +189,12 @@ class MDLColorChannelID(u8, Enum):
 class RAS1_TREF(BPCommand):
   tex_map_0   : GX.TexMapID       = field(bits=3, default=GX.TexMapID.TEXMAP0)
   tex_coord_0 : GX.TexCoordID     = field(bits=3, default=GX.TexCoordID.TEXCOORD0)
-  unknown_1_0 : u8                = field(bits=1, default=0)
+  enable_0    : bool              = field(bits=1, default=False)
   channel_id_0: MDLColorChannelID = field(bits=3, default=MDLColorChannelID(0))
   unknown_2_0 : u8                = field(bits=2, default=0, assert_default=True)
   tex_map_1   : GX.TexMapID       = field(bits=3, default=GX.TexMapID.TEXMAP0)
   tex_coord_1 : GX.TexCoordID     = field(bits=3, default=GX.TexCoordID.TEXCOORD0)
-  unknown_1_1 : u8                = field(bits=1, default=0)
+  enable_1    : bool              = field(bits=1, default=False)
   channel_id_1: MDLColorChannelID = field(bits=3, default=MDLColorChannelID(0))
   unknown_2_1 : u8                = field(bits=2, default=0, assert_default=True)
   
