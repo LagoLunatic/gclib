@@ -81,6 +81,9 @@ class TX_SETMODE0(BPCommand):
 
 @bunfoe
 class TX_SETMODE1(BPCommand):
+  min_lod: u8 = field(bits=8)
+  max_lod: u8 = field(bits=8)
+  
   VALID_REGISTERS = [
     BPRegister.TX_SETMODE1_I0, BPRegister.TX_SETMODE1_I1, BPRegister.TX_SETMODE1_I2, BPRegister.TX_SETMODE1_I3,
     BPRegister.TX_SETMODE1_I4, BPRegister.TX_SETMODE1_I5, BPRegister.TX_SETMODE1_I6, BPRegister.TX_SETMODE1_I7,
@@ -192,6 +195,37 @@ class RAS1_TREF(BPCommand):
   VALID_REGISTERS = [
     BPRegister.RAS1_TREF0, BPRegister.RAS1_TREF1, BPRegister.RAS1_TREF2, BPRegister.RAS1_TREF3,
     BPRegister.RAS1_TREF4, BPRegister.RAS1_TREF5, BPRegister.RAS1_TREF6, BPRegister.RAS1_TREF7,
+  ]
+
+# @bunfoe
+# class RAS1_IREF_TevOrder(BUNFOE):
+#   tex_coord_id: GX.TexCoordID = field(bits=3)
+#   tex_map_id  : GX.TexMapID   = field(bits=3)
+
+@bunfoe
+class RAS1_IREF(BPCommand):
+  # TODO: this should be an array once BUNFOE supports arrays of objects in bitfields
+  # tev_orders: list[RAS1_IREF_TevOrder] = field(length=4)
+  
+  tex_coord_id_0: GX.TexCoordID = field(bits=3)
+  tex_map_id_0  : GX.TexMapID   = field(bits=3)
+  tex_coord_id_1: GX.TexCoordID = field(bits=3)
+  tex_map_id_1  : GX.TexMapID   = field(bits=3)
+  tex_coord_id_2: GX.TexCoordID = field(bits=3)
+  tex_map_id_2  : GX.TexMapID   = field(bits=3)
+  tex_coord_id_3: GX.TexCoordID = field(bits=3)
+  tex_map_id_3  : GX.TexMapID   = field(bits=3)
+  
+  VALID_REGISTERS = [
+    BPRegister.RAS1_IREF,
+  ]
+
+@bunfoe
+class IND_IMASK(BPCommand):
+  mask: u8 = field(bits=8)
+  
+  VALID_REGISTERS = [
+    BPRegister.IND_IMASK,
   ]
 
 @bunfoe
@@ -421,10 +455,10 @@ class MDLCullMode(Enum):
 class GEN_MODE(BPCommand):
   num_tex_gens          : u8          = field(bits=4)
   num_color_chans       : u8          = field(bits=3)
-  unknown_1             : u8          = field(bits=3, default=0, assert_default=True)
+  unknown_1             : u8          = field(bits=3, default=0, assert_default=True) # upper bits of num_color_chans?
   num_tev_stages_minus_1: u8          = field(bits=4)
   cull_mode             : MDLCullMode = field(bits=2)
-  unknown_2             : u8          = field(bits=8, default=0, assert_default=True)
+  num_ind_tex_stages    : u8          = field(bits=8)
   
   VALID_REGISTERS = [
     BPRegister.GEN_MODE,

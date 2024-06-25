@@ -120,6 +120,7 @@ class MDLEntry(BUNFOE):
       ))
       self.bp_commands.append(BP.TX_SETMODE1(
         reg_index=i,
+        min_lod=tex.min_lod*2, max_lod=tex.max_lod*2,
       ))
       
       tex = tex1.textures[texture_index]
@@ -228,11 +229,11 @@ class MDLEntry(BUNFOE):
         continue
       self.bp_commands.append(BP.TEV_REGISTERL(
         reg_index=i+1,
-        r=color.r, a=color.a, is_konst=False,
+        r=color.r&0x7FF, a=color.a&0x7FF, is_konst=False,
       ))
       self.bp_commands.append(BP.TEV_REGISTERH(
         reg_index=i+1,
-        g=color.g, b=color.b, is_konst=False,
+        g=color.g&0x7FF, b=color.b&0x7FF, is_konst=False,
       ))
       self.bp_commands.append(self.bp_commands[-1].copy())
       self.bp_commands.append(self.bp_commands[-1].copy())
@@ -346,70 +347,58 @@ class MDLEntry(BUNFOE):
         channel_id_0=BP.MDLColorChannelID.COLOR0, channel_id_1=BP.MDLColorChannelID.COLOR0,
       ))
     
-    # TODO: what are these?
-    self.bp_commands.append(BP.BPCommand(
+    tev_orders = mat.tex_indirect.tev_orders
+    self.bp_commands.append(BP.RAS1_IREF(
       register=BPRegister.RAS1_IREF,
-      bitfield=0xFFFFFF,
+      tex_coord_id_0=GX.TexCoordID(tev_orders[0].tex_coord_id&0x07), tex_map_id_0=GX.TexMapID(tev_orders[0].tex_map_id&0x07),
+      tex_coord_id_1=GX.TexCoordID(tev_orders[1].tex_coord_id&0x07), tex_map_id_1=GX.TexMapID(tev_orders[1].tex_map_id&0x07),
+      tex_coord_id_2=GX.TexCoordID(tev_orders[2].tex_coord_id&0x07), tex_map_id_2=GX.TexMapID(tev_orders[2].tex_map_id&0x07),
+      tex_coord_id_3=GX.TexCoordID(tev_orders[3].tex_coord_id&0x07), tex_map_id_3=GX.TexMapID(tev_orders[3].tex_map_id&0x07),
     ))
-    self.bp_commands.append(BP.BPCommand(
+    mask = 0
+    for i in range(mat.tex_indirect.num_ind_tex_stages):
+      mask |= 1 << (tev_orders[i].tex_map_id & 0x07)
+    self.bp_commands.append(BP.IND_IMASK(
       register=BPRegister.IND_IMASK,
+      mask=mask,
     ))
     
-    # TODO
-    # the exponent for integral_a is wrong because we need to take shift into account?
-    # what is magnitude? C?
-    # or is shift for B?
-    # what is B anyway?
-    # https://github.com/dolphin-emu/dolphin/blob/6309aa00109f81a2e9f2281d1fced174eccef8f8/Source/Core/VideoCommon/BPMemory.h#L1546-L1561
-    # https://github.com/dolphin-emu/dolphin/blob/87c27936fc6f7a748dd926b3f9d4930f4813bfed/Source/Core/VideoBackends/Software/Tev.cpp#L583-L597
-    # https://github.com/magcius/noclip.website/blob/99acba7be7875b5b223557cbe6aec036d7a7d2f0/src/gx/gx_material.ts#L1972-L1987
-    # val = (mat.fog_info.far_z - mat.fog_info.near_z) / (mat.fog_info.end_z - mat.fog_info.start_z) # orthographic? TODO noclip
     if mat.fog_info.far_z == mat.fog_info.near_z or mat.fog_info.end_z == mat.fog_info.start_z:
       # Avoid division by 0
       val_a = 0.0
-    else:
-      val_a = (mat.fog_info.far_z * mat.fog_info.near_z) / ((mat.fog_info.far_z - mat.fog_info.near_z) * (mat.fog_info.end_z - mat.fog_info.start_z))
-    if mat.fog_info.far_z == mat.fog_info.near_z:
-      #val_b = 0.0
-      val_b = 2.00091553 # TODO unsure, works for agbcursor.bdl though
-    else:
-      val_b = 2.25715 # mat.fog_info.far_z / (mat.fog_info.far_z - mat.fog_info.near_z)
-      # TODO: need 2.02648926 for fn_body
-    # print(val_a)
-    if mat.fog_info.end_z == mat.fog_info.start_z:
-      # Avoid division by 0
+      val_b = 0.5
       val_c = 0.0
     else:
+      val_a = (mat.fog_info.far_z * mat.fog_info.near_z) / ((mat.fog_info.far_z - mat.fog_info.near_z) * (mat.fog_info.end_z - mat.fog_info.start_z))
+      val_b = mat.fog_info.far_z / (mat.fog_info.far_z - mat.fog_info.near_z)
       val_c = mat.fog_info.start_z / (mat.fog_info.end_z - mat.fog_info.start_z)
-    integral_a = fs.bit_cast_float_to_int(val_a)
-    integral_b = fs.bit_cast_float_to_int(val_b)
-    integral_c = fs.bit_cast_float_to_int(val_c)
     
-    exponent_a = integral_a >> 23
-    shift_b = 1
-    if exponent_a != 0: # TODO: hack
-      # exponent_a needs to be -2 difference for cl.bdl and hookshot.bdl, but not agbcursor.bdl
-      exponent_a -= 2
-      # shift_b should be 1 for agb_cursor.bdl, 2 for cl.bdl and hookshot.bdl
-      shift_b = 2
-    exponent_a &= 0xFF
+    mantissa = val_b
+    exponent = 1
+    while mantissa > 1.0:
+      mantissa /= 2.0
+      exponent += 1
+    while mantissa > 0.0 and mantissa < 0.5:
+      mantissa *= 2.0
+      exponent -= 1
+    
+    integral_a = fs.bit_cast_float_to_int(val_a / (1 << exponent))
+    integral_b = int(mantissa * 8388638.0)
+    integral_c = fs.bit_cast_float_to_int(val_c)
     
     self.bp_commands.append(BP.TEV_FOG_PARAM_0(
       register=BPRegister.TEV_FOG_PARAM_0,
-      mantissa=(integral_a >> 12 & 0x7FF),
-      # exponent=((integral_a >> 23 & 0xFF) - 2),
-      exponent=exponent_a,
-      sign=(integral_a >> 31 & 1),
+      mantissa=(integral_a >> 12 & 0x7FF), exponent=(integral_a >> 23 & 0xFF), sign=(integral_a >> 31 & 1),
     ))
     # print(val_a, val_b, val_c)
     # print(self.bp_commands[-1])
     self.bp_commands.append(BP.TEV_FOG_PARAM_1(
       register=BPRegister.TEV_FOG_PARAM_1,
-      magnitude=(integral_b >> 8), # TODO
+      magnitude=integral_b,
     ))
     self.bp_commands.append(BP.TEV_FOG_PARAM_2(
       register=BPRegister.TEV_FOG_PARAM_2,
-      shift=shift_b,
+      shift=exponent,
     ))
     self.bp_commands.append(BP.TEV_FOG_PARAM_3(
       register=BPRegister.TEV_FOG_PARAM_3,
@@ -486,7 +475,8 @@ class MDLEntry(BUNFOE):
       register=BPRegister.GEN_MODE,
       num_tex_gens=mat.num_tex_gens, num_color_chans=mat.num_color_chans,
       num_tev_stages_minus_1=mat.num_tev_stages-1,
-      cull_mode=cull_mode
+      cull_mode=cull_mode,
+      num_ind_tex_stages=mat.tex_indirect.num_ind_tex_stages
     ))
     
     
