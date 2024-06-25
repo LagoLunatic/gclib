@@ -195,7 +195,7 @@ class Material(BUNFOE):
     
     if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
       max_index_to_read = None
-      if list_attr_name == 'tev_swap_mode_table_list_offset':
+      if list_attr_name == 'tev_swap_mode_table_list_offset' and any(self.tev_swap_modes):
         # These indexes are themselves indexed by the ras/tex sels of tev_swap_mode_list_offset.
         # The problem is that if we just read all of these indexes, the later ones that aren't
         # actually used frequently have junk data for indexes, which would result in us reading out
