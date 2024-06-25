@@ -6,6 +6,7 @@ import re
 
 from gclib import fs_helpers as fs
 from gclib.rarc import RARC
+from gclib.yaz0_yay0 import Yaz0, Yay0
 
 MAX_DATA_SIZE_TO_READ_AT_ONCE = 64*1024*1024 # 64MB
 
@@ -245,7 +246,7 @@ class GCM:
     for file_path in all_file_paths:
       _, file_ext = os.path.splitext(os.path.basename(file_path))
       
-      if recurse_rarcs and file_ext == ".arc":
+      if recurse_rarcs and self.check_file_is_rarc(file_path):
         rarc = RARC(self.get_changed_file_data(file_path))
         rarc.read()
         for rarc_file_path, file_data in rarc.each_file_data(only_file_exts=only_file_exts):
@@ -254,6 +255,30 @@ class GCM:
         if only_file_exts is not None and file_ext not in only_file_exts:
           continue
         yield (file_path, self.get_changed_file_data(file_path))
+  
+  def check_file_is_rarc(self, file_path: str) -> bool:
+    try:
+      _, file_ext = os.path.splitext(os.path.basename(file_path))
+      if file_ext == ".arc":
+        file_data = self.get_changed_file_data(file_path)
+        if RARC.check_file_is_rarc(file_data):
+          return True
+      elif file_ext == ".szs":
+        file_data = self.get_changed_file_data(file_path)
+        if Yaz0.check_is_compressed(file_data):
+          magic = fs.read_str(file_data, 0x11, 4)
+          if magic == "RARC":
+            return True
+      elif file_ext == ".szp":
+        file_data = self.get_changed_file_data(file_path)
+        if Yay0.check_is_compressed(file_data):
+          chunk_offset = fs.read_u32(file_data, 0xC)
+          magic = fs.read_str(file_data, chunk_offset, 4)
+          if magic == "RARC":
+            return True
+    except Exception as e:
+      pass
+    return False
   
   def export_disc_to_folder_with_changed_files(self, output_folder_path, *, base_dir=None, only_changed_files=False):
     base_dir_path = None
