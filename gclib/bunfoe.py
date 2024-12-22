@@ -213,6 +213,19 @@ class BUNFOE:
       raise NotImplementedError
   
   @staticmethod
+  def get_field_byte_size(field: Field):
+    if field.bits is not None:
+      return None
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      if field.length is not MISSING:
+        return BUNFOE.get_list_field_byte_size(field)
+      else:
+        # Impossible to statically determine the byte size of a dynamically-sized field.
+        return None
+    else:
+      return BUNFOE.get_byte_size(field.type)
+  
+  @staticmethod
   def get_list_field_byte_size(field: Field):
     assert field.length is not MISSING and field.length > 0
     type_args = typing.get_args(field.type)
