@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import MISSING
 from enum import Enum
-from typing import BinaryIO, ClassVar, Self, Type, TypeVar
+from typing import Any, BinaryIO, ClassVar, Self, Type, TypeVar, dataclass_transform
 from types import GenericAlias
 import typing
 import types
@@ -84,7 +84,7 @@ class Field(dataclasses.Field):
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
           length=MISSING, length_calculator=MISSING, ignore=False, bitfield=False, bits=None,
-          assert_default=False):
+          assert_default=False) -> Any:
   if assert_default and default is MISSING:
     raise ValueError('must specify default when assert_default is specified')
   if default is MISSING and default_factory is MISSING:
@@ -134,6 +134,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
   
   return cls
 
+@dataclass_transform(kw_only_default=True, field_specifiers=(field, Field))
 def bunfoe(cls=None, /, *,
            # Dataclass arguments. Most defaults are left the same, but kw_only is changed from False
            # to True in order to make normal fields keyword arguments by default.
