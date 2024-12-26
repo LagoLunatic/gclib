@@ -1,7 +1,7 @@
 import dataclasses
 from dataclasses import MISSING, InitVar
 from enum import Enum
-from typing import BinaryIO, ClassVar, Self, Type, TypeVar
+from typing import Any, BinaryIO, ClassVar, Self, Type, TypeVar, dataclass_transform
 from types import GenericAlias
 import typing
 import types
@@ -93,7 +93,7 @@ class Field(dataclasses.Field):
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
           length=MISSING, length_calculator=MISSING, ignore=False, bitfield=False, bits=None,
-          assert_default=False):
+          assert_default=False) -> Any:
   if assert_default and default is MISSING:
     raise ValueError('must specify default when assert_default is specified')
   if default is MISSING and default_factory is MISSING:
@@ -145,7 +145,7 @@ def _process_class(cls, init, repr, eq, order, unsafe_hash, frozen,
   
   return cls
 
-@typing.dataclass_transform(kw_only_default=True, field_specifiers=(field,))
+@dataclass_transform(kw_only_default=True, field_specifiers=(field, Field))
 def bunfoe(cls=None, /, *,
            # Dataclass arguments. Most defaults are left the same, but kw_only is changed from False
            # to True in order to make normal fields keyword arguments by default.
@@ -239,6 +239,19 @@ class BUNFOE:
       return size
     else:
       raise NotImplementedError
+  
+  @staticmethod
+  def get_field_byte_size(field: Field):
+    if field.bits is not None:
+      return None
+    if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
+      if field.length is not MISSING:
+        return BUNFOE.get_list_field_byte_size(field)
+      else:
+        # Impossible to statically determine the byte size of a dynamically-sized field.
+        return None
+    else:
+      return BUNFOE.get_byte_size(field.type)
   
   @staticmethod
   def get_list_field_byte_size(field: Field):
