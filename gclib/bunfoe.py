@@ -10,7 +10,7 @@ from io import BytesIO
 import copy
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr, MappedBool
 
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
@@ -210,7 +210,7 @@ class BUNFOE:
   def get_byte_size(field_type: Type) -> int:
     if field_type in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
       return fs.PRIMITIVE_TYPE_TO_BYTE_SIZE[field_type]
-    elif issubclass(field_type, bool):
+    elif field_type == bool or issubclass(field_type, MappedBool):
       return BUNFOE.get_byte_size(u8)
     elif issubclass(field_type, u16Rot):
       return BUNFOE.get_byte_size(u16)
@@ -364,10 +364,10 @@ class BUNFOE:
     raw_value = (bitfield_value >> bit_offset) & bit_mask
     bit_offset += bits
     
-    if issubclass(field_type, bool):
-      # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
-      if PRINT_INVALID_VALUE_WARNINGS and raw_value not in [0, 1]:
-        print(f"Boolean should be zero or one, but got value: {raw_value}")
+    if field_type == bool:
+      assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
+    elif issubclass(field_type, MappedBool):
+      assert PRINT_INVALID_VALUE_WARNINGS and raw_value in field_type.VALID_VALUES, f"Boolean value not valid: {raw_value}"
     
     if issubclass(field_type, Enum):
       if raw_value in field_type:
@@ -389,12 +389,14 @@ class BUNFOE:
     if field_type in fs.PRIMITIVE_TYPE_TO_READ_FUNC:
       read_func = fs.PRIMITIVE_TYPE_TO_READ_FUNC[field_type]
       return read_func(self.data, offset)
-    elif issubclass(field_type, bool):
+    elif field_type == bool:
       raw_value = self.read_value(u8, offset)
-      # assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
-      if PRINT_INVALID_VALUE_WARNINGS and raw_value not in [0, 1]:
-        print(f"Boolean should be zero or one, but got value: {raw_value}")
+      assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
       return bool(raw_value)
+    elif issubclass(field_type, MappedBool):
+      raw_value = self.read_value(u8, offset)
+      assert raw_value in field_type.VALID_VALUES, f"Boolean value not valid: {raw_value}"
+      return field_type(raw_value)
     elif issubclass(field_type, u16Rot):
       return self.read_value(u16, offset)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ in [FixedStr, MagicStr]:
@@ -536,8 +538,16 @@ class BUNFOE:
     if field_type in fs.PRIMITIVE_TYPE_TO_WRITE_FUNC:
       write_func = fs.PRIMITIVE_TYPE_TO_WRITE_FUNC[field_type]
       write_func(self.data, offset, value)
-    elif issubclass(field_type, bool):
+    elif field_type == bool:
       self.save_value(u8, offset, int(value))
+    elif issubclass(field_type, MappedBool):
+      if isinstance(value, bool):
+        raw_value = int(value)
+      elif isinstance(value, MappedBool):
+        raw_value = value.raw_value
+      else:
+        raise Exception(f"Invalid MappedBool: {value!r}")
+      self.save_value(u8, offset, raw_value)
     elif issubclass(field_type, u16Rot):
       self.save_value(u16, offset, value)
     elif isinstance(field_type, GenericAlias) and field_type.__origin__ == FixedStr:
