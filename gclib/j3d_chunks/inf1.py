@@ -13,6 +13,11 @@ class INF1NodeType(u16, Enum):
   MATERIAL    = 0x11
   SHAPE       = 0x12
 
+class INF1MatrixScalingRule(u8, Enum):
+  BASIC     = 0x00
+  SOFTIMAGE = 0x01
+  MAYA      = 0x02
+
 @bunfoe
 class INF1Node(BUNFOE):
   DATA_SIZE = 4
@@ -23,9 +28,18 @@ class INF1Node(BUNFOE):
   parent: 'INF1Node' = field(default=None, repr=False, compare=False, ignore=True)
   children: list['INF1Node'] = field(default_factory=list, repr=False, compare=False, ignore=True)
 
+@bunfoe
 class INF1(JChunk):
+  load_flags           : u16                   = field(bitfield=True)
+  matrix_scaling_rule  : INF1MatrixScalingRule = field(bits=4)
+  unknown_load_flags   : u16                   = field(bits=12)
+  _padding             : u16
+  mtx_group_count      : u32
+  vertex_count         : u32
+  hierarchy_data_offset: u32
+  
   def read_chunk_specific_data(self):
-    self.hierarchy_data_offset = fs.read_u32(self.data, 0x14)
+    BUNFOE.read(self, 0)
     
     offset = self.hierarchy_data_offset
     self.flat_hierarchy: list[INF1Node] = []
@@ -76,6 +90,8 @@ class INF1(JChunk):
       self.print_hierarchy_recursive(node.children, indent=indent+1)
   
   def save_chunk_specific_data(self):
+    BUNFOE.save(self, 0)
+    
     offset = self.hierarchy_data_offset
     for node in self.flat_hierarchy:
       node.save(offset)
