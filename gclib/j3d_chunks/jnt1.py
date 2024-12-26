@@ -1,6 +1,6 @@
 
 from gclib import fs_helpers as fs
-from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr, Bool255isFalse
 from gclib.jchunk import JChunk
 from gclib.bunfoe import bunfoe, field, BUNFOE
 from gclib.bunfoe_types import Vec3float, Vec3u16Rot
@@ -9,16 +9,16 @@ from gclib.bunfoe_types import Vec3float, Vec3u16Rot
 class Joint(BUNFOE):
   DATA_SIZE = 0x40
   
-  matrix_type           : u16        = 0
-  no_inherit_scale      : bool       = False
-  _padding_1            : u8         = 0xFF
-  scale                 : Vec3float  = field(default_factory=Vec3float)
-  rotation              : Vec3u16Rot = field(default_factory=Vec3u16Rot)
-  _padding_2            : u16        = 0xFFFF
-  translation           : Vec3float  = field(default_factory=Vec3float)
-  bounding_sphere_radius: float      = 0.0
-  bounding_box_min      : Vec3float  = field(default_factory=Vec3float)
-  bounding_box_max      : Vec3float  = field(default_factory=Vec3float)
+  matrix_type           : u16            = 0
+  no_inherit_scale      : Bool255isFalse = False
+  _padding_1            : u8             = 0xFF
+  scale                 : Vec3float      = field(default_factory=Vec3float)
+  rotation              : Vec3u16Rot     = field(default_factory=Vec3u16Rot)
+  _padding_2            : u16            = 0xFFFF
+  translation           : Vec3float      = field(default_factory=Vec3float)
+  bounding_sphere_radius: float          = 0.0
+  bounding_box_min      : Vec3float      = field(default_factory=Vec3float)
+  bounding_box_max      : Vec3float      = field(default_factory=Vec3float)
 
 class JNT1(JChunk):
   def read_chunk_specific_data(self):

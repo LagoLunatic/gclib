@@ -253,6 +253,26 @@ class MagicStr(str):
   def __class_getitem__(cls, klass: type):
     return GenericAlias(cls, klass)
 
+class MappedBool(u8):
+  VALID_VALUES = {
+    0x00: False,
+    0x01: True,
+  }
+  
+  def __init__(self, raw_value: int):
+    assert 0 <= raw_value <= 255
+    self.raw_value = raw_value
+  
+  def __bool__(self):
+    return self.VALID_VALUES[self.raw_value]
+
+class Bool255isFalse(MappedBool):
+  VALID_VALUES = {
+    0x00: False,
+    0x01: True,
+    0xFF: False,
+  }
+
 PRIMITIVE_TYPE_TO_BYTE_SIZE = {
   u32  : 4,
   u24  : 3,
