@@ -125,6 +125,9 @@ class J3D(GCLibFile):
   def save(self, only_chunks:set=None):
     data = self.data
     
+    if self.mdl3 is not None:
+      self.mdl3.generate_from_mat3(self.mat3, self.tex1)
+    
     # Cut off the chunk data first since we're replacing this data entirely.
     data.truncate(0x20)
     data.seek(0x20)

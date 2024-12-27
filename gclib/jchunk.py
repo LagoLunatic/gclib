@@ -50,7 +50,7 @@ class JChunk(BUNFOE):
     #padding = fs.read_u16(self.data, string_table_offset+0x02)
     #assert padding == 0xFFFF
     
-    strings = []
+    strings: list[str] = []
     offset = string_table_offset + 4
     for i in range(num_strings):
       #string_hash = fs.read_u16(self.data, offset+0x00)

@@ -1,5 +1,5 @@
 import dataclasses
-from dataclasses import MISSING
+from dataclasses import MISSING, InitVar
 from enum import Enum
 from typing import Any, BinaryIO, ClassVar, Self, Type, TypeVar, dataclass_transform
 from types import GenericAlias
@@ -7,6 +7,7 @@ import typing
 import types
 import functools
 from io import BytesIO
+import copy
 
 from gclib import fs_helpers as fs
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, MagicStr, MappedBool
@@ -14,6 +15,11 @@ from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, u16Rot, FixedStr, 
 # TODO: implement read_only attribute (for stuff like magic strings)
 # TODO: implement hidden attribute (for e.g. array length fields)
 # TODO: implement valid_range attribute (for integers that aren't allowed to take up the full range their bit size allows)
+# TODO: assert that bitfield bits we never even read are always 0? maybe make it an option when creating the bitfield, assert_unread_zero?
+# TODO: allow @property decorator functions to appear in the GUI as if they were fields?
+# TODO: need to split the ignore option into two:
+#       one would prevent it from being read automatically (e.g. MDL3.entries). maybe call it noread.
+#       the other would make it hidden and not show up in fields()/asdict()? e.g. INF1.parent
 
 T = TypeVar('T')
 
@@ -22,6 +28,9 @@ T = TypeVar('T')
 class _UNREAD_TYPE:
   pass
 UNREAD = _UNREAD_TYPE()
+
+
+PRINT_INVALID_VALUE_WARNINGS = True
 
 
 class Field(dataclasses.Field):
@@ -98,6 +107,8 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
     raise ValueError('cannot specify both length and length_calculator')
   if bitfield and bits is not None:
     raise ValueError('cannot specify both bitfield and bits')
+  if bitfield and default == UNREAD:
+    default = 0
   return Field(default, default_factory, init, repr, hash, compare,
                metadata, kw_only, length, length_calculator, ignore, bitfield, bits, assert_default)
 
@@ -177,6 +188,22 @@ class BUNFOE:
   
   def copy(self, /, **changes) -> Self:
     return dataclasses.replace(self, **changes)
+  
+  def asdict(self) -> dict:
+    result = []
+    for field in fields(self):
+      result.append((field.name, self._asdict_inner(getattr(self, field.name))))
+    return dict(result)
+  
+  def _asdict_inner(self, obj):
+    if isinstance(obj, BUNFOE):
+      return obj.asdict()
+    elif isinstance(obj, (list, tuple)):
+      return type(obj)(self._asdict_inner(v) for v in obj)
+    elif issubclass(type(obj), Enum):
+      return str(obj)
+    else:
+      return copy.deepcopy(obj)
   
   @staticmethod
   @functools.cache
@@ -309,6 +336,8 @@ class BUNFOE:
       bit_offset += field.bits
     
     setattr(self, field.name, value)
+    if field.assert_default:
+      assert value == field.default, f"Field {field.name} expected value {field.default}, but got {value}"
     return bit_offset
   
   def read_bitfield_property_list_field(self, bitfield: Field, field: Field, bit_offset: int) -> tuple[list, int]:
@@ -338,8 +367,22 @@ class BUNFOE:
     if field_type == bool:
       assert raw_value in [0, 1], f"Boolean must be zero or one, but got value: {raw_value}"
     elif issubclass(field_type, MappedBool):
-      assert raw_value in field_type.VALID_VALUES, f"Boolean value not valid: {raw_value}"
-    value = field_type(raw_value)
+      assert PRINT_INVALID_VALUE_WARNINGS and raw_value in field_type.VALID_VALUES, f"Boolean value not valid: {raw_value}"
+    
+    if issubclass(field_type, Enum):
+      if raw_value in field_type:
+        value = field_type(raw_value)
+      else:
+        if PRINT_INVALID_VALUE_WARNINGS:
+          print(f"Invalid value for enum {field_type}: {raw_value}")
+        value = raw_value
+    elif issubclass(field_type, int) or issubclass(field_type, bool):
+      value = field_type(raw_value)
+    elif issubclass(field_type, float):
+      value = field_type(fs.bit_cast_int_to_float(raw_value))
+    else:
+      raise NotImplementedError(f"Reading type {field_type} from a bitfield is not currently implemented")
+    
     return value
   
   def read_value(self, field_type: Type[T], offset: int) -> T:
@@ -363,7 +406,12 @@ class BUNFOE:
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
           raw_value = self.read_value(base_class, offset)
-          return field_type(raw_value)
+          if raw_value in field_type:
+            return field_type(raw_value)
+          else:
+            if PRINT_INVALID_VALUE_WARNINGS:
+              print(f"Invalid value for enum {field_type}: {raw_value}")
+            return raw_value
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")
     elif issubclass(field_type, BUNFOE):
       value = field_type(self.data)
@@ -470,9 +518,18 @@ class BUNFOE:
     bitfield_value &= ~bit_mask
     
     if issubclass(field_type, Enum):
-      raw_value = value.value
-    else:
+      if isinstance(value, field_type):
+        raw_value = value.value
+      elif isinstance(value, int):
+        raw_value = value
+      else:
+        raise TypeError(f"Invalid value {repr(value)}, expected to have type {field_type} but was {type(value)} instead.")
+    elif issubclass(field_type, int) or issubclass(field_type, bool):
       raw_value = int(value) # TODO: use field_type?
+    elif issubclass(field_type, float):
+      raw_value = fs.bit_cast_float_to_int(value)
+    else:
+      raise NotImplementedError(f"Writing type {field_type} to a bitfield is not currently implemented")
     bitfield_value |= (raw_value << bit_offset) & bit_mask
     setattr(self, bitfield.name, bitfield_value)
   
@@ -502,7 +559,12 @@ class BUNFOE:
     elif issubclass(field_type, Enum):
       for base_class in field_type.__mro__:
         if issubclass(base_class, int) and base_class in fs.PRIMITIVE_TYPE_TO_BYTE_SIZE:
-          raw_value = value.value
+          if isinstance(value, field_type):
+            raw_value = value.value
+          elif isinstance(value, int):
+            raw_value = value
+          else:
+            raise TypeError(f"Invalid value {repr(value)}, expected to have type {field_type} but was {type(value)} instead.")
           self.save_value(base_class, offset, raw_value)
           return
       raise TypeError(f"Enum {field_type} must inherit from a primitive int subclass.")

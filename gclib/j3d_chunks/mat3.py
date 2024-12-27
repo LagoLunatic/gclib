@@ -10,11 +10,6 @@ from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu
 from gclib.jchunk import JChunk
 import gclib.gx_enums as GX
 
-class PixelEngineMode(u8, Enum):
-  Opaque      = 0x01
-  Alpha_Test  = 0x02
-  Translucent = 0x04
-
 @bunfoe
 class ZMode(BUNFOE):
   depth_test : bool           = True
@@ -108,18 +103,18 @@ class TexMtxMapMode(u8, Enum):
 class TexMatrix(BUNFOE):
   DATA_SIZE = 0x64
   
-  projection   : TexMtxProjection
-  bitfield_1   : u8            = field(bitfield=True)
-  map_mode     : TexMtxMapMode = field(bits=6)
-  unknown_1    : bool          = field(bits=1) # TODO padding? maybe should assert_default=0
-  is_maya      : bool          = field(bits=1)
-  _padding_1   : u16 = 0xFFFF
-  center       : Vec3float
-  scale        : Vec2float
-  rotation     : u16Rot
-  _padding_2   : u16 = 0xFFFF
-  translation  : Vec2float
-  effect_matrix: Matrix4x4
+  projection   : TexMtxProjection = TexMtxProjection.MTX2x4
+  bitfield_1   : u8               = field(bitfield=True)
+  map_mode     : TexMtxMapMode    = field(bits=6, default=TexMtxMapMode.None_)
+  unknown_1    : bool             = field(bits=1, default=False, assert_default=True)
+  is_maya      : bool             = field(bits=1, default=False)
+  _padding_1   : u16              = 0xFFFF
+  center       : Vec3float        = field(default_factory=lambda: Vec3float(x=0.5, y=0.5, z=0.5))
+  scale        : Vec2float        = field(default_factory=lambda: Vec2float(x=1.0, y=1.0))
+  rotation     : u16Rot           = 0
+  _padding_2   : u16              = 0xFFFF
+  translation  : Vec2float        = field(default_factory=Vec2float)
+  effect_matrix: Matrix4x4        = field(default_factory=Matrix4x4)
 
 @bunfoe
 class TevSwapMode(BUNFOE):
@@ -138,7 +133,8 @@ class TevSwapModeTable(BUNFOE):
 class FogInfo(BUNFOE):
   DATA_SIZE = 0x2C
   
-  type_            : u8
+  fog_type         : GX.FogType
+  # TODO: fog_type & 0x08 may be projection? need to find an example of orthographic fog...
   enable           : bool
   center           : u16
   start_z          : float
@@ -159,8 +155,9 @@ class Material(BUNFOE):
   DATA_SIZE = 0x14C
   
   mat3: 'MAT3' = field(default=None, repr=False, compare=False, kw_only=False, ignore=True)
+  tex_indirect: 'TextureIndirect' = field(default=None, repr=False, compare=False, kw_only=False, ignore=True)
   
-  pixel_engine_mode   : PixelEngineMode        = PixelEngineMode.Opaque
+  pixel_engine_mode   : GX.PixelEngineMode     = GX.PixelEngineMode.Opaque
   cull_mode           : GX.CullMode            = field(metadata={'indexed_by': (u8,  'cull_mode_list_offset')})
   num_color_chans     : u8                     = field(metadata={'indexed_by': (u8,  'num_color_chans_list_offset')})
   num_tex_gens        : u8                     = field(metadata={'indexed_by': (u8,  'num_tex_gens_list_offset')})
@@ -198,7 +195,7 @@ class Material(BUNFOE):
     
     if isinstance(field.type, GenericAlias) and field.type.__origin__ == list:
       max_index_to_read = None
-      if list_attr_name == 'tev_swap_mode_table_list_offset':
+      if list_attr_name == 'tev_swap_mode_table_list_offset' and any(self.tev_swap_modes):
         # These indexes are themselves indexed by the ras/tex sels of tev_swap_mode_list_offset.
         # The problem is that if we just read all of these indexes, the later ones that aren't
         # actually used frequently have junk data for indexes, which would result in us reading out
@@ -281,9 +278,9 @@ class IndirectTevOrder(BUNFOE):
 
 @bunfoe
 class IndirectTexMatrix(BUNFOE):
-  matrix  : Matrix2x3  = field(default_factory=Matrix2x3)
-  exponent: u8         = 1
-  _padding: u24        = 0xFFFFFF
+  matrix        : Matrix2x3 = field(default_factory=Matrix2x3)
+  scale_exponent: s8        = 1
+  _padding      : u24       = 0xFFFFFF
 
 @bunfoe
 class IndirectTexScale(BUNFOE):
@@ -293,16 +290,16 @@ class IndirectTexScale(BUNFOE):
 
 @bunfoe
 class IndirectTevStage(BUNFOE):
-  tev_stage       : GX.IndTexStageID
-  ind_tex_format  : GX.IndTexFormat
-  ind_tex_bias_sel: GX.IndTexBiasSel
-  ind_tex_mtx_id  : GX.IndTexMtxID
-  ind_tex_wrap_s  : GX.IndTexWrap
-  ind_tex_wrap_t  : GX.IndTexWrap
-  add_prev        : bool
-  utc_lod         : bool
-  alpha_sel       : GX.IndTexAlphaSel
-  _padding        : u24 = 0xFFFFFF
+  tev_stage: GX.IndTexStageID
+  format   : GX.IndTexFormat
+  bias_sel : GX.IndTexBiasSel
+  mtx_sel  : GX.IndTexMtxSel
+  wrap_s   : GX.IndTexWrap
+  wrap_t   : GX.IndTexWrap
+  add_prev : bool
+  utc_lod  : bool
+  alpha_sel: GX.IndTexAlphaSel
+  _padding : u24 = 0xFFFFFF
 
 @bunfoe
 class TextureIndirect(BUNFOE):
@@ -378,6 +375,7 @@ class MAT3(JChunk):
         indirect.read(indirect_offset)
         self.indirects.append(indirect)
         indirect_offset += TextureIndirect.DATA_SIZE
+        self.materials[mat_index].tex_indirect = indirect
   
   def read_indexed_value(self, value_type: Type, list_attr_name: str, index: int) -> Any:
     list_offset = getattr(self, list_attr_name)

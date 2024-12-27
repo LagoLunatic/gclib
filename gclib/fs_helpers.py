@@ -198,6 +198,15 @@ def write_s32(data: BinaryIO, offset: int, new_value: int):
   data.write(new_bytes)
 
 
+def bit_cast_float_to_int(value: float) -> int:
+  raw_bytes = struct.pack(">f", value)
+  return struct.unpack(">I", raw_bytes)[0]
+
+def bit_cast_int_to_float(value: int) -> float:
+  raw_bytes = struct.pack(">I", value)
+  return struct.unpack(">f", raw_bytes)[0]
+
+
 def align_data_to_nearest(data: BinaryIO, size: int, padding_bytes:bytes=PADDING_BYTES):
   current_end = data_len(data)
   next_offset = current_end + (size - current_end % size) % size

@@ -38,6 +38,14 @@ class RARC(GCLibFile):
     self.file_entries: list[RARCFileEntry] = []
     self.instantiated_object_files = {}
   
+  @classmethod
+  def check_file_is_rarc(cls, data):
+    if fs.data_len(data) < 4:
+      return False
+    if fs.read_bytes(data, 0, 4) != b"RARC":
+      return False
+    return True
+  
   def read(self):
     # Read header.
     self.magic = fs.read_str(self.data, 0, 4)
