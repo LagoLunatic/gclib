@@ -448,6 +448,38 @@ class GCM:
     if file_entry.file_path in self.changed_files:
       del self.changed_files[file_entry.file_path]
   
+  def rename_file_or_directory(self, file_entry: 'GCMFileEntry', new_name):
+    if len(new_name) == 0:
+      raise Exception("File name cannot be empty.")
+    other_file_entry = next((fe for fe in file_entry.parent.children if fe.name == new_name), None)
+    if other_file_entry == file_entry:
+      # File name not changed
+      return
+    if other_file_entry is not None:
+      raise Exception("The file name you entered is already used by another file or folder in this directory.")
+    
+    assert file_entry.name != new_name
+    old_path = file_entry.file_path
+    new_path = file_entry.file_path.rsplit("/", 1)[0] + "/" + new_name
+    assert old_path != new_path
+    
+    file_entry.name = new_name
+    file_entry.file_path = new_path
+    
+    if file_entry.is_dir:
+      self.dirs_by_path[new_path] = file_entry
+      self.dirs_by_path_lowercase[new_path.lower()] = file_entry
+      del self.dirs_by_path[old_path]
+      del self.dirs_by_path_lowercase[old_path.lower()]
+    else:
+      self.files_by_path[new_path] = file_entry
+      self.files_by_path_lowercase[new_path.lower()] = file_entry
+      del self.files_by_path[old_path]
+      del self.files_by_path_lowercase[old_path.lower()]
+      if old_path in self.changed_files:
+        self.changed_files[new_path] = self.changed_files[old_path]
+        del self.changed_files[old_path]
+  
   def pad_output_iso_by(self, amount):
     self.output_iso.write(b"\0"*amount)
   
