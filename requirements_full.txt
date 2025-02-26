@@ -4,6 +4,8 @@
 #
 #    pip-compile --extra=speedups --output-file=requirements_full.txt pyproject.toml
 #
+numpy==2.2.3
+    # via gclib (pyproject.toml)
 pillow==10.2.0
     # via gclib (pyproject.toml)
 pyfastbti @ git+https://github.com/LagoLunatic/PyFastBTI.git@da01c14562a4711e031fd0a01c52d2131035e228

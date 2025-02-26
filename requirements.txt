@@ -4,5 +4,7 @@
 #
 #    pip-compile --output-file=requirements.txt pyproject.toml
 #
+numpy==2.2.3
+    # via gclib (pyproject.toml)
 pillow==10.2.0
     # via gclib (pyproject.toml)
