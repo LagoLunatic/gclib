@@ -8,9 +8,9 @@ numpy==2.2.3
     # via gclib (pyproject.toml)
 pillow==11.1.0
     # via gclib (pyproject.toml)
-pyfastbti @ git+https://github.com/LagoLunatic/PyFastBTI.git@800479b965d4d1997e619de6b01f4b496ad1a966
+pyfastbti @ git+https://github.com/LagoLunatic/PyFastBTI.git@13b24b028b62d199740044f15085f70878ea80a4
     # via gclib (pyproject.toml)
-pyfasttextureutils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@7e8b1b54558fa02cb1d69181a855e9292475bef6
+pyfasttextureutils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@ec40de927daa6b59485e34ea01b8bab1ecd1a31a
     # via gclib (pyproject.toml)
-pyfastyaz0yay0 @ git+https://github.com/LagoLunatic/PyFastYaz0Yay0.git@64bf7e38f27eeed1c6bcab6aefc2b682120e6d97
+pyfastyaz0yay0 @ git+https://github.com/LagoLunatic/PyFastYaz0Yay0.git@2adb8a8c00d98f98f245e0304094a0610203a82e
     # via gclib (pyproject.toml)
