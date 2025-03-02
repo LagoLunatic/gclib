@@ -88,13 +88,15 @@ def write_str(data: BinaryIO, offset: int, new_string: str, max_length: int):
   # Writes a fixed-length string.
   # Although it is fixed-length, it still must have a null character terminating it, so the real max length is one less than the passed max_length argument.
   
-  str_len = len(new_string)
+  encoded_string = new_string.encode("shift_jis")
+  
+  str_len = len(encoded_string)
   if str_len >= max_length:
     raise Exception("String \"%s\" is too long (max length including null byte: 0x%X)" % (new_string, max_length))
   
   padding_length = max_length - str_len
-  null_padding = b"\x00"*padding_length
-  new_value = new_string.encode("shift_jis") + null_padding
+  null_padding = b"\0"*padding_length
+  new_value = encoded_string + null_padding
   
   data.seek(offset)
   data.write(new_value)
@@ -103,13 +105,15 @@ def write_magic_str(data: BinaryIO, offset: int, new_string: str, max_length: in
   # Writes a fixed-length string that does not have to end with a null byte.
   # This is for magic file format identifiers.
   
-  str_len = len(new_string)
+  encoded_string = new_string.encode("shift_jis")
+  
+  str_len = len(encoded_string)
   if str_len > max_length:
     raise Exception("String %s is too long (max length 0x%X)" % (new_string, max_length))
   
   padding_length = max_length - str_len
-  null_padding = b"\x00"*padding_length
-  new_value = new_string.encode("shift_jis") + null_padding
+  null_padding = b"\0"*padding_length
+  new_value = encoded_string + null_padding
   
   data.seek(offset)
   data.write(new_value)
@@ -117,7 +121,9 @@ def write_magic_str(data: BinaryIO, offset: int, new_string: str, max_length: in
 def write_str_with_null_byte(data: BinaryIO, offset: int, new_string: str):
   # Writes a non-fixed length string.
   
-  str_len = len(new_string)
+  encoded_string = new_string.encode("shift_jis")
+  
+  str_len = len(encoded_string)
   write_str(data, offset, new_string, str_len+1)
 
 
