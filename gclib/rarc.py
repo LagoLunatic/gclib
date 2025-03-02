@@ -200,7 +200,7 @@ class RARC(GCLibFile):
     
     # Recursively delete subdirectories.
     for file_entry in node.files:
-      if file_entry.is_dir and not file_entry.name in [".", ".."]:
+      if file_entry.is_dir and file_entry.name not in [".", ".."]:
         self.delete_directory(file_entry)
     
     self.regenerate_all_file_entries_list()
