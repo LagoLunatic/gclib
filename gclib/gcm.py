@@ -259,23 +259,19 @@ class GCM:
   def check_file_is_rarc(self, file_path: str) -> bool:
     try:
       _, file_ext = os.path.splitext(os.path.basename(file_path))
-      if file_ext == ".arc":
-        file_data = self.get_changed_file_data(file_path)
-        if RARC.check_file_is_rarc(file_data):
-          return True
-      elif file_ext == ".szs":
+      if file_ext in [".arc", ".szs", ".szp"]:
         file_data = self.get_changed_file_data(file_path)
         if Yaz0.check_is_compressed(file_data):
           magic = fs.read_str(file_data, 0x11, 4)
           if magic == "RARC":
             return True
-      elif file_ext == ".szp":
-        file_data = self.get_changed_file_data(file_path)
-        if Yay0.check_is_compressed(file_data):
+        elif Yay0.check_is_compressed(file_data):
           chunk_offset = fs.read_u32(file_data, 0xC)
           magic = fs.read_str(file_data, chunk_offset, 4)
           if magic == "RARC":
             return True
+        elif RARC.check_file_is_rarc(file_data):
+          return True
     except Exception as e:
       pass
     return False
