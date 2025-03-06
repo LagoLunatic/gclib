@@ -240,7 +240,7 @@ class GCM:
     
     return all_file_paths
   
-  def each_file_data(self, recurse_rarcs=True, only_file_exts=None):
+  def each_file_data(self, recurse_rarcs=True, only_file_exts: list[str] | None = None):
     all_file_paths = self.get_all_file_paths_natsort()
     
     for file_path in all_file_paths:

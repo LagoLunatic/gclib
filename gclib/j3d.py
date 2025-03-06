@@ -1,4 +1,4 @@
-from typing import Optional
+from types import UnionType
 from gclib import fs_helpers as fs
 from gclib.gclib_file import GCLibFile
 from gclib.jchunk import JChunk
@@ -22,26 +22,26 @@ class J3D(GCLibFile):
   KNOWN_MAGICS = None
   KNOWN_FILE_TYPES = None
   
-  inf1: Optional[INF1]
-  vtx1: Optional[VTX1]
-  evp1: Optional[EVP1]
-  drw1: Optional[DRW1]
-  jnt1: Optional[JNT1]
-  shp1: Optional[SHP1]
-  mat3: Optional[MAT3]
-  tex1: Optional[TEX1]
-  mdl3: Optional[MDL3]
-  ank1: Optional[ANK1]
-  trk1: Optional[TRK1]
-  ttk1: Optional[TTK1]
-  tpt1: Optional[TPT1]
-  anf1: Optional[ANF1]
-  vaf1: Optional[VAF1]
+  inf1: INF1 | None
+  vtx1: VTX1 | None
+  evp1: EVP1 | None
+  drw1: DRW1 | None
+  jnt1: JNT1 | None
+  shp1: SHP1 | None
+  mat3: MAT3 | None
+  tex1: TEX1 | None
+  mdl3: MDL3 | None
+  ank1: ANK1 | None
+  trk1: TRK1 | None
+  ttk1: TTK1 | None
+  tpt1: TPT1 | None
+  anf1: ANF1 | None
+  vaf1: VAF1 | None
   
   CHUNK_TYPES = {
     chunk_class.__name__: chunk_class
     for chunk_class in [
-      chunk_class.__args__[0] if chunk_class.__name__ == "Optional" else chunk_class
+      chunk_class.__args__[0] if isinstance(chunk_class, UnionType) else chunk_class
       for chunk_class in __annotations__.values()
     ]
   }
@@ -119,7 +119,7 @@ class J3D(GCLibFile):
     for chunk_magic, chunk_class in self.CHUNK_TYPES.items():
       chunk_attr = chunk_magic.lower()
       if chunk_attr in class_attrs:
-        if class_attrs[chunk_attr].__name__ != "Optional":
+        if class_attrs[chunk_attr] == chunk_class:
           assert getattr(self, chunk_attr) is not None
   
   def save(self, only_chunks:set=None):
@@ -186,7 +186,7 @@ class BMT(J3D):
   KNOWN_FILE_TYPES = ["bmt3"]
   
   mat3: MAT3
-  tex1: Optional[TEX1]
+  tex1: TEX1 | None
 
 class BCK(J3D):
   KNOWN_MAGICS = ["J3D1"]

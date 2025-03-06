@@ -1,4 +1,4 @@
-from typing import Optional
+from types import UnionType
 from io import BytesIO
 
 from gclib import fs_helpers as fs
@@ -16,17 +16,17 @@ PARTICLE_HEADER_SIZE = {
 class JParticle:
   # bem1: BEM1
   bsp1: BSP1
-  # esp1: Optional[ESP1]
-  # etx1: Optional[ETX1]
-  ssp1: Optional[SSP1]
+  # esp1: ESP1 | None
+  # etx1: ETX1 | None
+  ssp1: SSP1 | None
   # fld1: list[FLD1] # TODO: properly handle lists of fields
   # kfa1: list[KFA1]
-  tdb1: Optional[TDB1]
+  tdb1: TDB1 | None
   
   CHUNK_TYPES = {
     chunk_class.__name__: chunk_class
     for chunk_class in [
-      chunk_class.__args__[0] if chunk_class.__name__ == "Optional" else chunk_class
+      chunk_class.__args__[0] if isinstance(chunk_class, UnionType) else chunk_class
       for chunk_class in __annotations__.values()
     ]
   }
@@ -134,19 +134,19 @@ class JParticle:
 class JParticle100(JParticle):
   # bem1: BEM1
   bsp1: BSP1
-  # esp1: Optional[ESP1]
-  # etx1: Optional[ETX1]
-  ssp1: Optional[SSP1_JPC100]
+  # esp1: ESP1 | None
+  # etx1: ETX1 | None
+  ssp1: SSP1_JPC100 | None
   # fld1: list[FLD1]
   # kfa1: list[KFA1]
-  tdb1: Optional[TDB1]
+  tdb1: TDB1 | None
 
 class JParticle210:
   # bem1: BEM1
   bsp1: BSP1
-  # esp1: Optional[ESP1]
-  # etx1: Optional[ETX1]
-  ssp1: Optional[SSP1_JPC210]
+  # esp1: ESP1 | None
+  # etx1: ETX1 | None
+  ssp1: SSP1_JPC210 | None
   # fld1: list[FLD1]
   # kfa1: list[KFA1]
-  tdb1: Optional[TDB1]
+  tdb1: TDB1 | None

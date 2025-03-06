@@ -39,7 +39,7 @@ class RARC(GCLibFile):
     self.instantiated_object_files = {}
   
   @classmethod
-  def check_file_is_rarc(cls, data):
+  def check_file_is_rarc(cls, data: BytesIO):
     if fs.data_len(data) < 4:
       return False
     if fs.read_bytes(data, 0, 4) != b"RARC":
@@ -192,6 +192,9 @@ class RARC(GCLibFile):
     return file_entry
   
   def delete_directory(self, dir_entry: 'RARCFileEntry'):
+    assert dir_entry.name not in [".", ".."]
+    assert dir_entry.node is not None
+    
     node = dir_entry.node
     
     dir_entry.parent_node.files.remove(dir_entry)
@@ -205,7 +208,7 @@ class RARC(GCLibFile):
     
     self.regenerate_all_file_entries_list()
   
-  def delete_file(self, file_entry):
+  def delete_file(self, file_entry: 'RARCFileEntry'):
     file_entry.parent_node.files.remove(file_entry)
     
     self.regenerate_all_file_entries_list()
@@ -222,7 +225,7 @@ class RARC(GCLibFile):
         if not file_entry.is_dir:
           file_entry.id = self.file_entries.index(file_entry)
   
-  def regenerate_files_list_for_node(self, node):
+  def regenerate_files_list_for_node(self, node: 'RARCNode'):
     # Sort the . and .. directory entries to be at the end of the node's file list.
     rel_dir_entries = []
     for file_entry in node.files:
@@ -240,7 +243,7 @@ class RARC(GCLibFile):
       if file_entry.is_dir and file_entry.name not in [".", ".."]:
         self.regenerate_files_list_for_node(file_entry.node)
   
-  def extract_all_files_to_disk_flat(self, output_directory):
+  def extract_all_files_to_disk_flat(self, output_directory: str):
     # Does not preserve directory structure.
     if not os.path.isdir(output_directory):
       os.mkdir(output_directory)
@@ -255,12 +258,12 @@ class RARC(GCLibFile):
       with open(output_file_path, "wb") as f:
         f.write(file_entry.data.read())
   
-  def extract_all_files_to_disk(self, output_directory):
+  def extract_all_files_to_disk(self, output_directory: str):
     # Preserves directory structure.
     root_node = self.nodes[0]
     self.extract_node_to_disk(root_node, output_directory)
   
-  def extract_node_to_disk(self, node, path):
+  def extract_node_to_disk(self, node: 'RARCNode', path: str):
     if not os.path.isdir(path):
       os.mkdir(path)
     
@@ -276,11 +279,11 @@ class RARC(GCLibFile):
         with open(file_path, "wb") as f:
           f.write(file.data.read())
   
-  def import_all_files_from_disk(self, input_directory):
+  def import_all_files_from_disk(self, input_directory: str):
     root_node = self.nodes[0]
     return self.import_node_from_disk(root_node, input_directory)
   
-  def import_node_from_disk(self, node, path):
+  def import_node_from_disk(self, node: 'RARCNode', path: str):
     num_files_overwritten = 0
     
     for file in node.files:
@@ -299,7 +302,7 @@ class RARC(GCLibFile):
     
     return num_files_overwritten
   
-  def each_file_data(self, only_file_exts=None):
+  def each_file_data(self, only_file_exts: list[str] | None = None):
     for file_entry in self.file_entries:
       if file_entry.is_dir:
         continue
@@ -377,9 +380,9 @@ class RARC(GCLibFile):
     # Main RAM file entries must all be in a row before the ARAM file entries.
     fs.align_data_to_nearest(self.data, 0x20)
     self.file_data_list_offset = self.data.tell()
-    mram_preload_file_entries = []
-    aram_preload_file_entries = []
-    no_preload_file_entries = []
+    mram_preload_file_entries: list[RARCFileEntry] = []
+    aram_preload_file_entries: list[RARCFileEntry] = []
+    no_preload_file_entries: list[RARCFileEntry] = []
     for file_entry in self.file_entries:
       if file_entry.is_dir:
         if file_entry.node is None:
@@ -398,7 +401,7 @@ class RARC(GCLibFile):
         else:
           raise Exception("File entry %s is not set as being loaded into any type of RAM." % file_entry.name)
     
-    def write_file_entry_data(file_entry):
+    def write_file_entry_data(file_entry: RARCFileEntry):
       nonlocal next_file_data_offset
       
       if self.keep_file_ids_synced_with_indexes:
@@ -459,25 +462,27 @@ class RARC(GCLibFile):
     fs.write_u8(self.data, self.data_header_offset + 0x1B, 0)
     fs.write_u32(self.data, self.data_header_offset + 0x1C, 0)
   
-  def get_node_by_path(self, path):
+  def get_node_by_path(self, path: str):
     if path in ["", "."]:
       # Root node
       return self.nodes[0]
     
     for node in self.nodes[1:]:
+      assert node.dir_entry is not None
       curr_path = node.dir_entry.name
       curr_node = node.dir_entry.parent_node
       while curr_node is not None:
         if curr_node == self.nodes[0]:
           # Root node
           break
+        assert curr_node.dir_entry is not None
         curr_path = "%s/%s" % (curr_node.dir_entry.name, curr_path)
         curr_node = curr_node.dir_entry.parent_node
       
       if curr_path == path:
         return node
   
-  def get_file_entry(self, file_name) -> 'RARCFileEntry':
+  def get_file_entry(self, file_name: str) -> 'RARCFileEntry':
     for file_entry in self.file_entries:
       if file_entry.name == file_name:
         return file_entry
@@ -498,7 +503,7 @@ class RARC(GCLibFile):
 class RARCNode:
   ENTRY_SIZE = 0x10
   
-  def __init__(self, rarc):
+  def __init__(self, rarc: RARC):
     self.rarc = rarc
     
     self.type: str = None
@@ -508,9 +513,9 @@ class RARCNode:
     self.files: list[RARCFileEntry] = [] # This will be populated after the file entries have been read.
     self.num_files: int = 0
     self.first_file_index: int = None
-    self.dir_entry: RARCFileEntry = None # This will be populated when the corresponding directory entry is read.
+    self.dir_entry: RARCFileEntry | None = None # This will be populated when the corresponding directory entry is read. (The root node has no dir_entry.)
   
-  def read(self, node_offset):
+  def read(self, node_offset: int):
     self.node_offset = node_offset
     
     self.type = fs.read_str(self.rarc.data, self.node_offset+0x00, 4)
@@ -546,7 +551,7 @@ class RARCNode:
 class RARCFileEntry(GCLibFileEntry):
   ENTRY_SIZE = 0x14
   
-  def __init__(self, rarc):
+  def __init__(self, rarc: RARC):
     super().__init__()
     
     self.rarc = rarc
@@ -555,13 +560,13 @@ class RARCFileEntry(GCLibFileEntry):
     self.id: int = 0xFFFF
     self.name_hash: int = None
     self.data_size: int = 0
-    self.data: BytesIO = None
+    self.data: BytesIO | None = None # None for directories.
     self.type: RARCFileAttrType = None
     self.name_offset: int = None
     self.name: str = None
-    self.node: RARCNode = None
+    self.node: RARCNode | None = None # Only None for the root node's ".." entry.
   
-  def read(self, entry_offset):
+  def read(self, entry_offset: int):
     self.entry_offset = entry_offset
     
     self.id = fs.read_u16(self.rarc.data, entry_offset)
@@ -591,7 +596,7 @@ class RARCFileEntry(GCLibFileEntry):
     return (self.type & RARCFileAttrType.DIRECTORY) != 0
   
   @is_dir.setter
-  def is_dir(self, value):
+  def is_dir(self, value: bool):
     if value:
       self.type |= RARCFileAttrType.DIRECTORY
     else:
