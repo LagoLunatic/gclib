@@ -37,6 +37,9 @@ class RARC(GCLibFile):
     self.nodes: list[RARCNode] = []
     self.file_entries: list[RARCFileEntry] = []
     self.instantiated_object_files = {}
+    
+    if flexible_data is not None:
+      self.read()
   
   @classmethod
   def check_file_is_rarc(cls, data: BytesIO):
@@ -312,7 +315,6 @@ class RARC(GCLibFile):
       
       if file_ext == ".arc":
         inner_rarc = self.get_file(file_entry.name, RARC)
-        inner_rarc.read()
         for inner_rarc_file_path, file_data in inner_rarc.each_file_data(only_file_exts=only_file_exts):
           yield (display_path + "/" + inner_rarc_file_path, file_data)
       else:

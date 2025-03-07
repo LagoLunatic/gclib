@@ -248,7 +248,6 @@ class GCM:
       
       if recurse_rarcs and self.check_file_is_rarc(file_path):
         rarc = RARC(self.get_changed_file_data(file_path))
-        rarc.read()
         for rarc_file_path, file_data in rarc.each_file_data(only_file_exts=only_file_exts):
           yield (file_path + "/" + rarc_file_path, file_data)
       else:

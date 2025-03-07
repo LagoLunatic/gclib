@@ -11,24 +11,28 @@ from gclib.texture_utils import IMAGE_FORMATS_THAT_USE_PALETTES, GREYSCALE_IMAGE
 from gclib.gx_enums import WrapMode, FilterMode
 
 class BTI(GCLibFile):
-  def __init__(self, flexible_data = None, header_offset=0):
+  def __init__(self, flexible_data: GCLibFileEntry | BytesIO | str | None = None, header_offset=0):
     if isinstance(flexible_data, GCLibFileEntry) or isinstance(flexible_data, str):
       assert header_offset == 0
     super().__init__(flexible_data)
     
     self.header_offset = header_offset
     
-    self.read_header(self.data, header_offset=header_offset)
+    if flexible_data is not None:
+      self.read()
+  
+  def read(self):
+    self.read_header(self.data, header_offset=self.header_offset)
     
     assert self.mipmap_count > 0, "Mipmap count must not be zero"
     
     # The size of all mipmap image data combined is equal to the offset of the next mipmap after the last one.
     image_data_total_size, _, _, _ = self.get_mipmap_offset_and_size(self.mipmap_count)
     
-    self.image_data = BytesIO(fs.read_bytes(self.data, header_offset+self.image_data_offset, image_data_total_size))
+    self.image_data = BytesIO(fs.read_bytes(self.data, self.header_offset+self.image_data_offset, image_data_total_size))
     
     palette_data_size = self.num_colors*2
-    self.palette_data = BytesIO(fs.read_bytes(self.data, header_offset+self.palette_data_offset, palette_data_size))
+    self.palette_data = BytesIO(fs.read_bytes(self.data, self.header_offset+self.palette_data_offset, palette_data_size))
   
   def read_header(self, data, header_offset=0):
     self.image_format = ImageFormat(fs.read_u8(data, header_offset+0))

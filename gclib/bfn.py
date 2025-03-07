@@ -27,7 +27,8 @@ class BFN(GCLibFile):
     self.map1s: list[MAP1] = []
     self.wid1s: list[WID1] = []
     
-    self.read()
+    if flexible_data is not None:
+      self.read()
   
   def read(self):
     self.magic = fs.read_str(self.data, 0, 4)

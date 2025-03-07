@@ -64,7 +64,8 @@ class J3D(GCLibFile):
     self.anf1 = None
     self.vaf1 = None
     
-    self.read()
+    if flexible_data is not None:
+      self.read()
   
   def read(self):
     data = self.data
