@@ -626,6 +626,28 @@ class RARCFileEntry(GCLibFileEntry):
       self.type &= ~RARCFileAttrType.COMPRESSED
       self.type &= ~RARCFileAttrType.YAZ0_COMPRESSED
   
+  def check_is_nested_rarc(self) -> bool:
+    if self.is_dir:
+      return False
+    assert self.data is not None
+    try:
+      _, file_ext = os.path.splitext(self.name)
+      if file_ext in [".arc", ".szs", ".szp"]:
+        if Yaz0.check_is_compressed(self.data):
+          magic = fs.read_str(self.data, 0x11, 4)
+          if magic == "RARC":
+            return True
+        elif Yay0.check_is_compressed(self.data):
+          chunk_offset = fs.read_u32(self.data, 0xC)
+          magic = fs.read_str(self.data, chunk_offset, 4)
+          if magic == "RARC":
+            return True
+        elif RARC.check_file_is_rarc(self.data):
+          return True
+    except Exception as e:
+      pass
+    return False
+  
   def save_changes(self):
     hash = 0
     for char in self.name:
