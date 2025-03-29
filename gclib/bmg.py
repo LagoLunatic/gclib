@@ -228,7 +228,7 @@ class Message:
     self.num_lines_per_box = fs.read_u16(data, offset+0x15)
     self.unknown_4 = fs.read_u8(data, offset+0x17)
     
-    self.string = None # Will be set after all messages are read.
+    self.string = "" # Will be set after all messages are read.
   
   def save_changes(self):
     data = self.data

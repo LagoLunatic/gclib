@@ -97,7 +97,7 @@ class BFN(GCLibFile):
     width_info = self.wid1s[0].code_to_width_info[char_code]
     return width_info.width
 
-  def word_wrap_string(self, string: str, max_line_length: int) -> str:
+  def word_wrap_string(self, string: str, max_line_length: int, preserve_control_codes = True) -> str:
     index_in_str = 0
     wordwrapped_str = ""
     current_word = ""
@@ -110,8 +110,9 @@ class BFN(GCLibFile):
         assert string[index_in_str+1] == "{"
         substr = string[index_in_str:]
         control_code_str_len = substr.index("}") + 1
-        substr = substr[:control_code_str_len]
-        current_word += substr
+        if preserve_control_codes:
+          substr = substr[:control_code_str_len]
+          current_word += substr
         index_in_str += control_code_str_len
       elif char == "\n":
         wordwrapped_str += current_word
@@ -155,13 +156,19 @@ class BFN(GCLibFile):
     return wordwrapped_str
   
   def render_string(self, string, max_line_length: int):
-    string = self.word_wrap_string(string, max_line_length)
+    string = self.word_wrap_string(string, max_line_length, preserve_control_codes=False)
     lines = string.split("\n")
     
     gly1: GLY1 = self.gly1s[0]
     gly1.render_sheets()
     
-    image = Image.new("RGBA", (640, 480))
+    # Using the INF1's leading doesn't seem to give the exact same result as ingame.
+    # The lines are farther apart ingame.
+    leading = self.inf1s[0].leading
+    # Using ascent + descent gives the same result as leading.
+    # leading = self.inf1s[0].ascent + self.inf1s[0].descent
+    
+    image = Image.new("RGBA", (max_line_length, len(lines)*leading))
     y = 0
     for line in lines:
       cursor_x = 0
@@ -189,11 +196,7 @@ class BFN(GCLibFile):
         
         cursor_x += width_info.width
       
-      # Using the INF1's leading doesn't seem to give the exact same result as ingame.
-      # The lines are farther apart ingame.
-      y += self.inf1s[0].leading
-      # Using ascent + descent gives the same result as leading.
-      #y += self.inf1s[0].ascent + self.inf1s[0].descent
+      y += leading
     
     return image
 
@@ -237,7 +240,7 @@ class GLY1(JChunk):
     return (self.rows_per_sheet * self.cols_per_sheet)
   
   def render_sheets(self):
-    if self.sheet_images:
+    if isinstance(self.sheet_images, list):
       return
     
     assert self.image_format not in IMAGE_FORMATS_THAT_USE_PALETTES
