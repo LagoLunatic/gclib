@@ -661,6 +661,18 @@ class MDLEntry(BUNFOE):
       mat.color_channels[3],
     ]
     for i, color_chan in enumerate(reordered_color_channels):
+      if color_chan is None:
+        color_chan_arg = XF.CHAN0_COLOR_Arg()
+        color_chan_arg.lighting_enabled = False
+        color_chan_arg.mat_color_src = GX.ColorSrc.Register
+        color_chan_arg.ambient_color_src = GX.ColorSrc.Register
+        color_chan_arg.attenuation_enabled = False
+        color_chan_arg.use_spot_attenuation = False
+        color_chan_arg.diffuse_function = GX.DiffuseFunction.None_
+        color_chan_arg.used_lights_0123 = [False]*4
+        color_chan_arg.used_lights_4567 = [False]*4
+        color_chan_cmd.args.append(color_chan_arg)
+        continue
       color_chan_arg = XF.CHAN0_COLOR_Arg()
       color_chan_arg.lighting_enabled = color_chan.lighting_enabled
       color_chan_arg.mat_color_src = color_chan.mat_color_src
