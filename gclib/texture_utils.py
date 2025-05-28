@@ -1,5 +1,6 @@
 
 from PIL import Image
+import imagequant
 from io import BytesIO
 import colorsys
 from enum import Enum
@@ -530,7 +531,7 @@ def generate_new_palettes_from_images(images: list[Image.Image], image_format, p
   if len(encoded_colors) > MAX_COLORS_FOR_IMAGE_FORMAT[image_format]:
     # If the image has more colors than the selected image format can support, we automatically reduce the number of colors.
     
-    # For C4 and C8, the colors should have already been reduced by Pillow's quantize method.
+    # For C4 and C8, the colors should have already been reduced by imagequant.
     # So the maximum number of colors can only be exceeded for C14X2.
     assert image_format == ImageFormat.C14X2
     
@@ -807,13 +808,13 @@ def decode_cmpr_block(image_format, image_data, offset, block_data_size, colors)
 
 
 
-def encode_image_from_path(new_image_file_path, image_format, palette_format, mipmap_count=1):
+def encode_image_from_path(new_image_file_path: str, image_format: ImageFormat, palette_format: PaletteFormat, mipmap_count=1):
   image = Image.open(new_image_file_path)
   image_width, image_height = image.size
   new_image_data, new_palette_data, encoded_colors = encode_image(image, image_format, palette_format, mipmap_count=mipmap_count)
   return (new_image_data, new_palette_data, encoded_colors, image_width, image_height)
 
-def encode_image(image, image_format, palette_format, mipmap_count=1):
+def encode_image(image: Image.Image, image_format: ImageFormat, palette_format: PaletteFormat, mipmap_count=1):
   image = image.convert("RGBA")
   image_width, image_height = image.size
   
@@ -823,9 +824,16 @@ def encode_image(image, image_format, palette_format, mipmap_count=1):
   if image_format in IMAGE_FORMATS_THAT_USE_PALETTES:
     max_colors = MAX_COLORS_FOR_IMAGE_FORMAT[image_format]
     if max_colors <= 256:
-      # Pillow's quantize method only supports up to 256 max colors.
+      # Pillow's quantize method gives bad-looking results for images with an alpha channel, so use imagequant instead.
+      # Not that imagequant only supports up to 256 max colors. The same applies to Pillow's quantize method.
       # So for C14X2 the image must be quantized by custom Python code instead (slower).
-      image = image.quantize(max_colors)
+      image = imagequant.quantize_pil_image(
+        image,
+        dithering_level=1.0,
+        max_colors=max_colors,
+        min_quality=0,
+        max_quality=100,
+      )
       image = image.convert("RGBA")
   
   encoded_colors, colors_to_color_indexes = generate_new_palettes_from_images([image], image_format, palette_format)
@@ -838,7 +846,7 @@ def encode_image(image, image_format, palette_format, mipmap_count=1):
     if i != 0:
       mipmap_width //= 2
       mipmap_height //= 2
-      mipmap_image = image.resize((mipmap_width, mipmap_height), Image.NEAREST)
+      mipmap_image = image.resize((mipmap_width, mipmap_height), Image.Resampling.NEAREST)
     
     mipmap_image_data = encode_mipmap_image(
       mipmap_image, image_format,
