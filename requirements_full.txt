@@ -4,10 +4,16 @@
 #
 #    pip-compile --extra=speedups --output-file=requirements_full.txt pyproject.toml
 #
+cffi==1.17.1
+    # via imagequant
+imagequant==1.1.4
+    # via gclib (pyproject.toml)
 numpy==2.2.3
     # via gclib (pyproject.toml)
 pillow==11.1.0
     # via gclib (pyproject.toml)
+pycparser==2.22
+    # via cffi
 pyfastbti @ git+https://github.com/LagoLunatic/PyFastBTI.git@13b24b028b62d199740044f15085f70878ea80a4
     # via gclib (pyproject.toml)
 pyfasttextureutils @ git+https://github.com/LagoLunatic/PyFastTextureUtils.git@ec40de927daa6b59485e34ea01b8bab1ecd1a31a
