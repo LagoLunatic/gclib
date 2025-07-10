@@ -177,24 +177,17 @@ class GCM:
             raise Exception("Tried to add an invalid system file: %s" % relative_file_path)
         
         if relative_file_path.lower() in self.files_by_path_lowercase:
-          replace_paths.append(relative_file_path)
+          file_entry = self.files_by_path_lowercase[relative_file_path.lower()]
+          replace_paths.append((file_path, file_entry.file_path))
         else:
-          add_paths.append(relative_file_path)
+          add_paths.append((file_path, relative_file_path))
     
     return (replace_paths, add_paths)
   
-  def import_files_from_disk_by_paths(self, input_directory, replace_paths, add_paths, base_dir=None):
-    path_prefix = ""
-    if base_dir is not None:
-      path_prefix = f"{base_dir.file_path}/"
-    
+  def import_files_from_disk_by_paths(self, replace_paths, add_paths):
     files_done = 0
     
-    for gcm_file_path in replace_paths:
-      assert gcm_file_path.startswith(path_prefix)
-      relative_file_path = gcm_file_path.removeprefix(path_prefix)
-      
-      file_path = os.path.join(input_directory, relative_file_path)
+    for (file_path, gcm_file_path) in replace_paths:
       if os.path.isfile(file_path):
         with open(file_path, "rb") as f:
           self.changed_files[gcm_file_path] = BytesIO(f.read())
@@ -204,11 +197,7 @@ class GCM:
       files_done += 1
       yield(gcm_file_path, files_done)
     
-    for gcm_file_path in add_paths:
-      assert gcm_file_path.startswith(path_prefix)
-      relative_file_path = gcm_file_path.removeprefix(path_prefix)
-      
-      file_path = os.path.join(input_directory, relative_file_path)
+    for (file_path, gcm_file_path) in add_paths:
       if os.path.isfile(file_path):
         with open(file_path, "rb") as f:
           self.add_new_file(gcm_file_path, BytesIO(f.read()))
