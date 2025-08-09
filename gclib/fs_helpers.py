@@ -257,6 +257,8 @@ class s16(int):
 class s8(int):
   pass
 
+f32 = float
+
 class u16Rot(u16):
   pass
 

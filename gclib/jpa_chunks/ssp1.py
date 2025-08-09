@@ -19,7 +19,7 @@ class SSP1(JPAChunk):
 
 @bunfoe
 class SSP1_JPC100(SSP1): # JPASweepShape
-  DATA_SIZE = 0x50
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 0x48
   
   flags: u32
   position_random: float
@@ -44,7 +44,7 @@ class SSP1_JPC100(SSP1): # JPASweepShape
 
 @bunfoe
 class SSP1_JPC210(SSP1): # JPAChildShape
-  DATA_SIZE = 0x48
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 0x40
   
   flags: u32
   position_random: float

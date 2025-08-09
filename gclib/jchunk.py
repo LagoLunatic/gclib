@@ -8,6 +8,8 @@ from gclib.jpa_enums import JPACVersion
 # and size. (e.g. JPC textures are each their own TEX1 chunk.)
 @bunfoe(eq=False)
 class JChunk(BUNFOE):
+  HEADER_SIZE = 8
+  
   magic: MagicStr[4]
   size: u32
   
