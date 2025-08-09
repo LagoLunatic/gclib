@@ -61,10 +61,14 @@ class JParticle:
     self.num_fld1_chunks = fs.read_u8(jpc_data, particle_offset+0x15)
     self.num_textures = fs.read_u8(jpc_data, particle_offset+0x16)
     self.unknown_5 = fs.read_u8(jpc_data, particle_offset+0x17)
+    assert self.unknown_5 == 0
     
     self.particle_id = fs.read_u16(jpc_data, particle_offset+0x18)
     
-    self.unknown_6 = fs.read_bytes(jpc_data, particle_offset+0x1A, 6)
+    self.unknown_6 = fs.read_u16(jpc_data, particle_offset+0x1A)
+    assert self.unknown_6 == 0
+    self.unknown_7 = fs.read_u16(jpc_data, particle_offset+0x1C)
+    assert self.unknown_7 == 0
   
   def read_header_jpc210(self, jpc_data, particle_offset):
     self.particle_id = fs.read_u16(jpc_data, particle_offset + 0x0)
@@ -129,9 +133,25 @@ class JParticle:
       #self.size = fs.data_len(self.data)
       
       fs.write_magic_str(self.data, 0, self.magic, 8)
+      fs.write_u32(self.data, 0xC, self.num_chunks)
       fs.write_u32(self.data, 0x10, self.size)
       
-      # TODO: write back all header changes.
+      fs.write_u8(self.data, 0x14, self.num_kfa1_chunks)
+      fs.write_u8(self.data, 0x15, self.num_fld1_chunks)
+      fs.write_u8(self.data, 0x16, self.num_textures)
+      fs.write_u8(self.data, 0x17, self.unknown_5)
+      
+      fs.write_u16(self.data, 0x18, self.particle_id)
+      
+      fs.write_u32(self.data, 0x1A, self.unknown_6)
+      fs.write_u32(self.data, 0x1C, self.unknown_7)
+    elif self.version == JPACVersion.JPAC2_10:
+      fs.write_u16(self.data, 0x0, self.particle_id)
+      fs.write_u16(self.data, 0x2, self.num_chunks)
+      fs.write_u8(self.data, 0x4, self.num_fld1_chunks)
+      fs.write_u8(self.data, 0x5, self.num_kfa1_chunks)
+      fs.write_u8(self.data, 0x6, self.num_textures)
+      fs.write_u8(self.data, 0x7, self.unknown_7)
 
 class JParticle100(JParticle):
   bem1: BEM1_JPC100
