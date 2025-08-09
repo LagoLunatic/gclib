@@ -19,7 +19,9 @@ class BEM1(JPAChunk):
 
 @bunfoe
 class BEM1_JPC100(BEM1): # JPADynamicsBlock
-  DATA_SIZE = JPAChunk.HEADER_SIZE + 0x80
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 4 + 0x80
+  
+  unused_jpachunk_field: u32 = field(default=0, assert_default=True)
   
   flag: u32
   volume_sweep: f32

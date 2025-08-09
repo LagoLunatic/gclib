@@ -19,7 +19,9 @@ class ESP1(JPAChunk):
 
 @bunfoe
 class ESP1_JPC100(ESP1): # JPAExtraShape
-  DATA_SIZE = JPAChunk.HEADER_SIZE + 0x60
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 4 + 0x60
+  
+  unused_jpachunk_field: u32 = field(default=0, assert_default=True)
   
   flags: u32
   unknown_1: u32

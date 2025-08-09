@@ -19,7 +19,9 @@ class SSP1(JPAChunk):
 
 @bunfoe
 class SSP1_JPC100(SSP1): # JPASweepShape
-  DATA_SIZE = JPAChunk.HEADER_SIZE + 0x48
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 4 + 0x48
+  
+  unused_jpachunk_field: u32 = field(default=0, assert_default=True)
   
   flags: u32
   position_random: float
