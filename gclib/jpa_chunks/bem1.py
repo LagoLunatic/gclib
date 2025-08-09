@@ -23,7 +23,7 @@ class BEM1_JPC100(BEM1): # JPADynamicsBlock
   
   unused_jpachunk_field: u32 = field(default=0, assert_default=True)
   
-  flag: u32
+  flags: u32
   volume_sweep: f32
   volume_min_rad: f32
   volume_size: u16

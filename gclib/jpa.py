@@ -7,6 +7,7 @@ from gclib.jpa_enums import JPACVersion
 from gclib.jpa_chunks.bem1 import BEM1, BEM1_JPC100, BEM1_JPC210
 from gclib.jpa_chunks.bsp1 import BSP1
 from gclib.jpa_chunks.esp1 import ESP1, ESP1_JPC100, ESP1_JPC210
+from gclib.jpa_chunks.etx1 import ETX1, ETX1_JPC100, ETX1_JPC210
 from gclib.jpa_chunks.ssp1 import SSP1, SSP1_JPC100, SSP1_JPC210
 from gclib.jpa_chunks.tdb1 import TDB1
 
@@ -19,7 +20,7 @@ class JParticle:
   bem1: BEM1
   bsp1: BSP1
   esp1: ESP1 | None
-  # etx1: ETX1 | None
+  etx1: ETX1 | None
   ssp1: SSP1 | None
   # fld1: list[FLD1] # TODO: properly handle lists of fields
   # kfa1: list[KFA1]
@@ -157,7 +158,7 @@ class JParticle100(JParticle):
   bem1: BEM1_JPC100
   bsp1: BSP1
   esp1: ESP1_JPC100 | None
-  # etx1: ETX1 | None
+  etx1: ETX1_JPC100 | None
   ssp1: SSP1_JPC100 | None
   # fld1: list[FLD1]
   # kfa1: list[KFA1]
@@ -167,7 +168,7 @@ class JParticle210:
   bem1: BEM1_JPC210
   bsp1: BSP1
   esp1: ESP1_JPC210 | None
-  # etx1: ETX1 | None
+  etx1: ETX1_JPC210 | None
   ssp1: SSP1_JPC210 | None
   # fld1: list[FLD1]
   # kfa1: list[KFA1]
