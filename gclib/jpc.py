@@ -204,8 +204,6 @@ class JPC:
     fs.write_magic_str(self.data, 0, self.magic, 8)
     fs.write_u16(self.data, 8, self.num_particles)
     fs.write_u16(self.data, 0xA, self.num_textures)
-    if self.version == JPACVersion.JPAC2_10:
-      fs.write_u32(self.data, 0xC, self.tex_offset)
     
     # Cut off the particle list and texture list since we're replacing this data entirely.
     self.data.truncate(PARTICLE_LIST_OFFSET[self.version])
@@ -225,6 +223,11 @@ class JPC:
       self.data.write(particle_data)
     
     fs.align_data_to_nearest(self.data, 0x20, padding_bytes=b'\0')
+    
+    self.tex_offset = self.data.tell()
+    if self.version == JPACVersion.JPAC2_10:
+      fs.write_u32(self.data, 0xC, self.tex_offset)
+    self.data.seek(self.tex_offset)
     
     for texture in self.textures:
       texture.save()
