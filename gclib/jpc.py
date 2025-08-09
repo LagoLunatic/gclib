@@ -1,6 +1,5 @@
 from io import BytesIO
 import os
-import glob
 
 from gclib import fs_helpers as fs
 from gclib.jpa_enums import JPACVersion
@@ -94,6 +93,13 @@ class JPC:
     self.particles[particle_index] = particle
     self.particles_by_id[particle.particle_id] = particle
   
+  def delete_particle(self, particle_id: int):
+    if particle_id not in self.particles_by_id:
+      raise Exception("Cannot delete a particle that does not exist: %04X" % particle_id)
+    particle = self.particles_by_id[particle_id]
+    self.particles.remove(particle)
+    del self.particles_by_id[particle.particle_id]
+  
   def add_texture(self, texture):
     if texture.filename in self.textures_by_filename:
       raise Exception("Cannot add a texture with the same name as an existing one: %s" % texture.filename)
@@ -107,32 +113,47 @@ class JPC:
     self.textures[texture_id] = texture
     self.textures_by_filename[texture.filename] = texture
   
+  def extract_particle_to_disk(self, jpa_path: str, particle_id: int):
+    if particle_id not in self.particles_by_id:
+      raise Exception("Cannot extract a particle that does not exist: %04X" % particle_id)
+    particle = self.particles_by_id[particle_id]
+    particle.save()
+    
+    with open(jpa_path, "wb") as f:
+      particle.data.seek(0)
+      f.write(particle.data.read())
+      
+      for texture_id in particle.tdb1.texture_ids:
+        texture = self.textures[texture_id]
+        texture.data.seek(0)
+        f.write(texture.data.read())
+  
   def extract_all_particles_to_disk(self, output_directory):
     if not os.path.isdir(output_directory):
       os.mkdir(output_directory)
     
     for particle in self.particles:
       file_name = "%04X.jpa" % particle.particle_id
-      particle_path = os.path.join(output_directory, file_name)
-      with open(particle_path, "wb") as f:
-        particle.data.seek(0)
-        f.write(particle.data.read())
-        
-        for texture_id in particle.tdb1.texture_ids:
-          texture = self.textures[texture_id]
-          texture.data.seek(0)
-          f.write(texture.data.read())
+      jpa_path = os.path.join(output_directory, file_name)
+      self.extract_particle_to_disk(jpa_path, particle.particle_id)
   
-  def import_particles_from_disk(self, input_directory):
-    all_jpa_file_paths = glob.glob(glob.escape(input_directory) + "/*.jpa")
+  def add_or_replace_particle_from_disk(self, jpa_path: str, particle_id: int):
+    jpa_paths_to_particle_ids: dict[str, int | None] = {
+      jpa_path: particle_id,
+    }
+    self.add_or_replace_particles_from_disk(jpa_paths_to_particle_ids)
+  
+  def add_or_replace_particles_from_disk(self, jpa_paths_to_particle_ids: dict[str, int | None]):
     new_particles = []
     new_textures = []
     new_textures_for_particle_id = {}
-    for jpa_path in all_jpa_file_paths:
+    for jpa_path, new_particle_id in jpa_paths_to_particle_ids.items():
       # Read the particle itself.
       with open(jpa_path, "rb") as f:
         jpa_data = BytesIO(f.read())
       particle = JParticle(jpa_data, 0, self.version)
+      if new_particle_id is not None:
+        particle.particle_id = new_particle_id
       new_particles.append(particle)
       new_textures_for_particle_id[particle.particle_id] = []
       
