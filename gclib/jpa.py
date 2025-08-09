@@ -4,6 +4,7 @@ from io import BytesIO
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
 from gclib.jpa_enums import JPACVersion
+from gclib.jpa_chunks.bem1 import BEM1, BEM1_JPC100, BEM1_JPC210
 from gclib.jpa_chunks.bsp1 import BSP1
 from gclib.jpa_chunks.esp1 import ESP1, ESP1_JPC100, ESP1_JPC210
 from gclib.jpa_chunks.ssp1 import SSP1, SSP1_JPC100, SSP1_JPC210
@@ -15,7 +16,7 @@ PARTICLE_HEADER_SIZE = {
 }
 
 class JParticle:
-  # bem1: BEM1
+  bem1: BEM1
   bsp1: BSP1
   esp1: ESP1 | None
   # etx1: ETX1 | None
@@ -133,7 +134,7 @@ class JParticle:
       # TODO: write back all header changes.
 
 class JParticle100(JParticle):
-  # bem1: BEM1
+  bem1: BEM1_JPC100
   bsp1: BSP1
   esp1: ESP1_JPC100 | None
   # etx1: ETX1 | None
@@ -143,7 +144,7 @@ class JParticle100(JParticle):
   tdb1: TDB1 | None
 
 class JParticle210:
-  # bem1: BEM1
+  bem1: BEM1_JPC210
   bsp1: BSP1
   esp1: ESP1_JPC210 | None
   # etx1: ETX1 | None
