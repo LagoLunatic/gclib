@@ -274,17 +274,34 @@ class BUNFOE:
     orig_offset = offset
     bitfield = None
     bit_offset = None
+    def finish_reading_bitfield():
+      # Reached the end of the current bitfield.
+      nonlocal offset
+      nonlocal bitfield
+      nonlocal bit_offset
+      assert bitfield is not None
+      assert bit_offset is not None
+      
+      bits_left = self.get_byte_size(bitfield.type)*8 - bit_offset
+      if bits_left > 0:
+        # We didn't read all of the bits that can possibly fit in this bitfield.
+        # Verify that all the remaining bits we didn't read are 0.
+        remaining_bitfield_value = self.read_bitfield_property_value(bitfield, u32, bit_offset, bits_left)
+        assert remaining_bitfield_value == 0, f"Bitfield {bitfield.name} had nonzero leftover bits"
+      
+      bitfield = None
+      bit_offset = None
     for field in fields(self):
       if field.manual_read:
         continue
       if bitfield is None:
         assert field.bits is None, "Specified the bits argument when no bitfield was active."
       else:
+        assert bit_offset is not None
         if field.bits is None:
           # Reached the end of the current bitfield.
           # This next field isn't part of the last bitfield we saw.
-          bitfield = None
-          bit_offset = None
+          finish_reading_bitfield()
         else:
           bit_offset = self.read_bitfield_property(bitfield, field, bit_offset)
           continue
@@ -294,6 +311,10 @@ class BUNFOE:
       if field.bitfield:
         bitfield = field
         bit_offset = 0
+    
+    if bitfield is not None:
+      # Bitfield continued until the end of this class so we didn't finish it in the loop.
+      finish_reading_bitfield()
     
     assert offset >= orig_offset
     if self.DATA_SIZE is not None:
