@@ -39,10 +39,11 @@ class Field(dataclasses.Field):
                '_field_type',  # Private: not to be used by user code.
                # Custom.
                'length', 'length_calculator', 'ignore', 'bitfield', 'bits', 'assert_default',
+               'manual_read',
                )
 
   def __init__(self, default, default_factory, init, repr, hash, compare, metadata, kw_only,
-               length, length_calculator, ignore, bitfield, bits, assert_default):
+               length, length_calculator, ignore, bitfield, bits, assert_default, manual_read):
     self.name = None
     self.type = None
     self.default = default
@@ -64,6 +65,7 @@ class Field(dataclasses.Field):
     self.bitfield = bitfield
     self.bits = bits
     self.assert_default = assert_default
+    self.manual_read = manual_read
 
   @dataclasses._recursive_repr
   def __repr__(self):
@@ -87,13 +89,14 @@ class Field(dataclasses.Field):
             f'bitfield={self.bitfield!r},'
             f'bits={self.bits!r},'
             f'assert_default={self.assert_default!r},'
+            f'manual_read={self.manual_read!r},'
             ')')
 
 
 def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
           hash=None, compare=True, metadata=None, kw_only=MISSING,
           length=MISSING, length_calculator=MISSING, ignore=False, bitfield=False, bits=None,
-          assert_default=False) -> Any:
+          assert_default=False, manual_read=False) -> Any:
   if assert_default and default is MISSING:
     raise ValueError('must specify default when assert_default is specified')
   if default is MISSING and default_factory is MISSING:
@@ -110,7 +113,8 @@ def field(*, default=MISSING, default_factory=MISSING, init=True, repr=True,
   if bitfield and default == UNREAD:
     default = 0
   return Field(default, default_factory, init, repr, hash, compare,
-               metadata, kw_only, length, length_calculator, ignore, bitfield, bits, assert_default)
+               metadata, kw_only, length, length_calculator, ignore, bitfield, bits, assert_default,
+               manual_read)
 
 def fields(class_or_instance, include_ignored=False) -> tuple[Field, ...]:
   if not isinstance(class_or_instance, BUNFOE) and not issubclass(class_or_instance, BUNFOE):
@@ -228,6 +232,8 @@ class BUNFOE:
       for subfield in fields(field_type):
         if subfield.bits is not None:
           continue
+        if subfield.manual_read:
+          return None
         if isinstance(subfield.type, GenericAlias) and subfield.type.__origin__ == list:
           if subfield.length is not MISSING:
             size += BUNFOE.get_list_field_byte_size(subfield)
@@ -269,6 +275,8 @@ class BUNFOE:
     bitfield = None
     bit_offset = None
     for field in fields(self):
+      if field.manual_read:
+        continue
       if bitfield is None:
         assert field.bits is None, "Specified the bits argument when no bitfield was active."
       else:
@@ -427,6 +435,8 @@ class BUNFOE:
     bitfield = None
     bit_offset = None
     for field in fields(self):
+      if field.manual_read:
+        continue
       if field.bitfield:
         # Don't save the bitfield as soon as we see it.
         # We need to update its value with the values of each of its properties first.
