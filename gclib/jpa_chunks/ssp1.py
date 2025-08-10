@@ -39,8 +39,8 @@ class SSP1_JPC100(SSP1): # JPASweepShape
   inherit_scale: float
   inherit_alpha: float
   inherit_rgb: float
-  color_prm: RGBAu8
-  color_env: RGBAu8
+  prm_color: RGBAu8
+  env_color: RGBAu8
   texture_index: u8
   _padding_2: u24
 
@@ -58,8 +58,8 @@ class SSP1_JPC210(SSP1): # JPAChildShape
   inherit_scale: float
   inherit_alpha: float
   inherit_rgb: float
-  color_prm: RGBAu8
-  color_env: RGBAu8
+  prm_color: RGBAu8
+  env_color: RGBAu8
   timing: float
   lifetime: s16
   rate: s16

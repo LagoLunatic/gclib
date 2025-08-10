@@ -2,6 +2,9 @@
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
 from gclib.jpa_enums import JPACVersion
+from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, f32, u16Rot, FixedStr, MagicStr
+from gclib.bunfoe import BUNFOE, bunfoe, field
+from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16, Vec3u16Rot
 
 class ColorAnimationKeyframe:
   def __init__(self, time, color):
@@ -9,121 +12,18 @@ class ColorAnimationKeyframe:
     self.color = color
 
 class BSP1(JPAChunk):
-  def read_chunk_specific_data(self):
-    if self.version == JPACVersion.JPAC1_00:
-      self.read_chunk_specific_data_jpc100()
-    elif self.version == JPACVersion.JPAC2_10:
-      self.read_chunk_specific_data_jpc210()
+  prm_color_anim_keys: list[ColorAnimationKeyframe]
+  env_color_anim_keys: list[ColorAnimationKeyframe]
   
-  def save_chunk_specific_data(self):
-    if self.version == JPACVersion.JPAC1_00:
-      self.save_chunk_specific_data_jpc100()
-    elif self.version == JPACVersion.JPAC2_10:
-      self.save_chunk_specific_data_jpc210()
-    
-  def read_chunk_specific_data_jpc100(self):
-    self.color_flags = fs.read_u8(self.data, 0xC + 0x1B)
-    
-    r = fs.read_u8(self.data, 0xC + 0x20)
-    g = fs.read_u8(self.data, 0xC + 0x21)
-    b = fs.read_u8(self.data, 0xC + 0x22)
-    a = fs.read_u8(self.data, 0xC + 0x23)
-    self.color_prm = (r, g, b, a)
-    r = fs.read_u8(self.data, 0xC + 0x24)
-    g = fs.read_u8(self.data, 0xC + 0x25)
-    b = fs.read_u8(self.data, 0xC + 0x26)
-    a = fs.read_u8(self.data, 0xC + 0x27)
-    self.color_env = (r, g, b, a)
-    
-    self.color_prm_anm_data_count = 0
-    self.color_prm_anm_table = []
-    if self.color_flags & 0x02 != 0:
-      self.color_prm_anm_data_offset = fs.read_u16(self.data, 0xC + 0x4)
-      self.color_prm_anm_data_count = fs.read_u8(self.data, 0xC + 0x1C)
-      self.color_prm_anm_table = self.read_color_table(self.color_prm_anm_data_offset, self.color_prm_anm_data_count)
-    
-    self.color_env_anm_data_count = 0
-    self.color_env_anm_table = []
-    if self.color_flags & 0x08 != 0:
-      self.color_env_anm_data_offset = fs.read_u16(self.data, 0xC + 0x6)
-      self.color_env_anm_data_count = fs.read_u8(self.data, 0xC + 0x1D)
-      self.color_env_anm_table = self.read_color_table(self.color_env_anm_data_offset, self.color_env_anm_data_count)
-  
-  def read_chunk_specific_data_jpc210(self):
-    self.color_flags = fs.read_u8(self.data, 0x21)
-    
-    r = fs.read_u8(self.data, 0x26)
-    g = fs.read_u8(self.data, 0x27)
-    b = fs.read_u8(self.data, 0x28)
-    a = fs.read_u8(self.data, 0x29)
-    self.color_prm = (r, g, b, a)
-    r = fs.read_u8(self.data, 0x2A)
-    g = fs.read_u8(self.data, 0x2B)
-    b = fs.read_u8(self.data, 0x2C)
-    a = fs.read_u8(self.data, 0x2D)
-    self.color_env = (r, g, b, a)
-    
-    self.color_prm_anm_data_count = 0
-    self.color_prm_anm_table = []
-    if self.color_flags & 0x02 != 0:
-      self.color_prm_anm_data_offset = fs.read_u16(self.data, 0xC)
-      self.color_prm_anm_data_count = fs.read_u8(self.data, 0x22)
-      self.color_prm_anm_table = self.read_color_table(self.color_prm_anm_data_offset, self.color_prm_anm_data_count)
-    
-    self.color_env_anm_data_count = 0
-    self.color_env_anm_table = []
-    if self.color_flags & 0x08 != 0:
-      self.color_env_anm_data_offset = fs.read_u16(self.data, 0xE)
-      self.color_env_anm_data_count = fs.read_u8(self.data, 0x23)
-      self.color_env_anm_table = self.read_color_table(self.color_env_anm_data_offset, self.color_env_anm_data_count)
-  
-  def save_chunk_specific_data_jpc100(self):
-    fs.write_u8(self.data, 0xC + 0x1B, self.color_flags)
-    
-    r, g, b, a = self.color_prm
-    fs.write_u8(self.data, 0xC + 0x20, r)
-    fs.write_u8(self.data, 0xC + 0x21, g)
-    fs.write_u8(self.data, 0xC + 0x22, b)
-    fs.write_u8(self.data, 0xC + 0x23, a)
-    r, g, b, a = self.color_env
-    fs.write_u8(self.data, 0xC + 0x24, r)
-    fs.write_u8(self.data, 0xC + 0x25, g)
-    fs.write_u8(self.data, 0xC + 0x26, b)
-    fs.write_u8(self.data, 0xC + 0x27, a)
-    
-    if self.color_flags & 0x02 != 0:
-      # Changing size not implemented.
-      assert len(self.color_prm_anm_table) == self.color_prm_anm_data_count
-      self.save_color_table(self.color_prm_anm_table, self.color_prm_anm_data_offset)
-    
-    if self.color_flags & 0x08 != 0:
-      # Changing size not implemented.
-      assert len(self.color_env_anm_table) == self.color_env_anm_data_count
-      self.save_color_table(self.color_env_anm_table, self.color_env_anm_data_offset)
-  
-  def save_chunk_specific_data_jpc210(self):
-    fs.write_u8(self.data, 0x21, self.color_flags)
-    
-    r, g, b, a = self.color_prm
-    fs.write_u8(self.data, 0x26, r)
-    fs.write_u8(self.data, 0x27, g)
-    fs.write_u8(self.data, 0x28, b)
-    fs.write_u8(self.data, 0x29, a)
-    r, g, b, a = self.color_env
-    fs.write_u8(self.data, 0x2A, r)
-    fs.write_u8(self.data, 0x2B, g)
-    fs.write_u8(self.data, 0x2C, b)
-    fs.write_u8(self.data, 0x2D, a)
-    
-    if self.color_flags & 0x02 != 0:
-      # Changing size not implemented.
-      assert len(self.color_prm_anm_table) == self.color_prm_anm_data_count
-      self.save_color_table(self.color_prm_anm_table, self.color_prm_anm_data_offset)
-    
-    if self.color_flags & 0x08 != 0:
-      # Changing size not implemented.
-      assert len(self.color_env_anm_table) == self.color_env_anm_data_count
-      self.save_color_table(self.color_env_anm_table, self.color_env_anm_data_offset)
+  def __new__(cls, *args, **kwargs):
+    if cls != BSP1:
+      return super().__new__(cls)
+    data, version = args
+    if version == JPACVersion.JPAC1_00:
+      return BSP1_JPC100(data, version)
+    elif version == JPACVersion.JPAC2_10:
+      return BSP1_JPC210(data, version)
+    return super().__new__(cls)
   
   def read_color_table(self, color_data_offset, color_data_count):
     color_table = []
@@ -145,3 +45,102 @@ class BSP1(JPAChunk):
       fs.write_u8(self.data, color_data_offset+i*6 + 3, g)
       fs.write_u8(self.data, color_data_offset+i*6 + 4, b)
       fs.write_u8(self.data, color_data_offset+i*6 + 5, a)
+
+@bunfoe
+class BSP1_JPC100(BSP1): # JPABaseShape
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 4 + 0x54
+  
+  unused_jpachunk_field: u32 = field(default=0, assert_default=True)
+
+  flags: u32
+  prm_color_anim_data_offset: s16
+  env_color_anim_data_offset: s16
+  base_size: Vec2float
+  loop_offset: s16
+  blend_mode_flags: u16
+  alpha_compare_flags: u8
+  alpha_compare_ref0: u8
+  alpha_compare_ref1: u8
+  z_mode_flags: u8
+  texture_flags: u8
+  texture_anim_key_count: u8
+  texture_index: u8
+  color_flags: u8
+  prm_color_anim_key_count: u8
+  env_color_anim_key_count: u8
+  color_reg_anim_max_frame: s16
+  prm_color: RGBAu8
+  env_color: RGBAu8
+  tiling: Vec2float
+  texture_static_translation: Vec2float
+  texture_static_scale: Vec2float
+  texture_scroll_translation: Vec2float
+  texture_scroll_scale: Vec2float
+  texture_scroll_rotate: f32
+  
+  def read_chunk_specific_data(self):
+    self.prm_color_anim_keys = []
+    if self.color_flags & 0x02 != 0:
+      self.prm_color_anim_keys = self.read_color_table(self.prm_color_anim_data_offset, self.prm_color_anim_key_count)
+    
+    self.env_color_anim_keys = []
+    if self.color_flags & 0x08 != 0:
+      self.env_color_anim_keys = self.read_color_table(self.env_color_anim_data_offset, self.env_color_anim_key_count)
+  
+  def save_chunk_specific_data(self):
+    if self.color_flags & 0x02 != 0:
+      # Changing size not yet implemented.
+      assert len(self.prm_color_anim_keys) == self.prm_color_anim_key_count
+      self.save_color_table(self.prm_color_anim_keys, self.prm_color_anim_data_offset)
+    
+    if self.color_flags & 0x08 != 0:
+      # Changing size not yet implemented.
+      assert len(self.env_color_anim_keys) == self.env_color_anim_key_count
+      self.save_color_table(self.env_color_anim_keys, self.env_color_anim_data_offset)
+
+@bunfoe
+class BSP1_JPC210(BSP1): # JPABaseShape
+  DATA_SIZE = JPAChunk.HEADER_SIZE + 0x2C
+  
+  flags: u32
+  prm_color_anim_offset: s16
+  env_color_anim_offset: s16
+  base_size: Vec2float
+  blend_mode_flags: u16
+  alpha_compare_flags: u8
+  alpha_compare_ref0: u8
+  alpha_compare_ref1: u8
+  z_mode_flags: u8
+  texture_flags: u8
+  texture_anim_count: u8
+  texture_index: u8
+  color_flags: u8
+  prm_color_anim_key_count: u8
+  env_color_anim_key_count: u8
+  color_reg_anim_max_frame: s16
+  prm_color: RGBAu8
+  env_color: RGBAu8
+  anim_random: u8
+  color_anim_random_mask: u8
+  texture_anim_random_mask: u8
+  _padding: u24
+  
+  def read_chunk_specific_data(self):
+    self.prm_color_anim_keys = []
+    if self.color_flags & 0x02 != 0:
+      self.prm_color_anim_keys = self.read_color_table(self.prm_color_anim_offset, self.prm_color_anim_key_count)
+    
+    self.env_color_anim_keys = []
+    if self.color_flags & 0x08 != 0:
+      self.env_color_anim_keys = self.read_color_table(self.env_color_anim_offset, self.env_color_anim_key_count)
+  
+  def save_chunk_specific_data(self):
+    if self.color_flags & 0x02 != 0:
+      # Changing size not yet implemented.
+      assert len(self.prm_color_anim_keys) == self.prm_color_anim_key_count
+      self.save_color_table(self.prm_color_anim_keys, self.prm_color_anim_offset)
+    
+    if self.color_flags & 0x08 != 0:
+      # Changing size not yet implemented.
+      assert len(self.env_color_anim_keys) == self.env_color_anim_key_count
+      self.save_color_table(self.env_color_anim_keys, self.env_color_anim_offset)
