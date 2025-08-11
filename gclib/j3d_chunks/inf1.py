@@ -63,13 +63,14 @@ class INF1(JChunk):
     i = start_i
     prev_node = None
     while i < len(self.flat_hierarchy):
-      node = self.flat_hierarchy[i]
+      node_index = i
+      node = self.flat_hierarchy[node_index]
       i += 1
       
       if node.type in [INF1NodeType.JOINT, INF1NodeType.MATERIAL, INF1NodeType.SHAPE]:
         prev_node = node
         if parent_node is not None:
-          parent_node.child_indexes.append(i)
+          parent_node.child_indexes.append(node_index)
       elif node.type == INF1NodeType.OPEN_CHILD:
         assert prev_node is not None
         i = self.build_scene_graph_recursive(prev_node, i)
