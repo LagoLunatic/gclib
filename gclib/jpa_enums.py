@@ -128,3 +128,14 @@ class ScaleAnimType_JPC210(Enum):
   Normal  = 0x00
   Repeat  = 0x01
   Reverse = 0x02
+
+class JPAIndirectTextureMode(Enum):
+  Off    = 0x00
+  Normal = 0x01
+  Sub    = 0x02
+
+class JPAIndTexMtxID(Enum):
+  ITM_0  = 0
+  ITM_0_ = 1
+  ITM_S0 = 2
+  ITM_T0 = 3
