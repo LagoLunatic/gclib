@@ -25,8 +25,7 @@ class INF1Node(BUNFOE):
   type: INF1NodeType
   index: u16
   
-  parent: 'INF1Node' = field(default=None, repr=False, compare=False, ignore=True)
-  children: list['INF1Node'] = field(default_factory=list, repr=False, compare=False, ignore=True)
+  child_indexes: list[int] = field(default_factory=list, repr=False, compare=False, ignore=True)
 
 @bunfoe
 class INF1(JChunk):
@@ -70,7 +69,7 @@ class INF1(JChunk):
       if node.type in [INF1NodeType.JOINT, INF1NodeType.MATERIAL, INF1NodeType.SHAPE]:
         prev_node = node
         if parent_node is not None:
-          parent_node.children.append(node)
+          parent_node.child_indexes.append(i)
       elif node.type == INF1NodeType.OPEN_CHILD:
         assert prev_node is not None
         i = self.build_scene_graph_recursive(prev_node, i)
