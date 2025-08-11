@@ -461,6 +461,9 @@ class BUNFOE:
       if field.bitfield:
         # Don't save the bitfield as soon as we see it.
         # We need to update its value with the values of each of its properties first.
+        if bitfield is not None:
+          # This new bitfield comes immediately after a different bitfield, so first save that previous bitfield.
+          offset = self.save_field(bitfield, offset)
         bitfield = field
         bit_offset = 0
         continue
@@ -468,6 +471,7 @@ class BUNFOE:
       if bitfield is None:
         assert field.bits is None, "Specified the bits argument when no bitfield was active."
       else:
+        assert bit_offset is not None
         if field.bits is None:
           # Reached the end of the current bitfield.
           # Save the bitfield itself now that it has its final value.
