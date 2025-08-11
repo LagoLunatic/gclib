@@ -1,7 +1,7 @@
 
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
-from gclib.jpa_enums import JPACVersion
+from gclib.jpa_enums import JPACVersion, VolumeType
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, f32, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, bunfoe, field
 from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16, Vec3u16Rot
@@ -23,7 +23,14 @@ class BEM1_JPC100(BEM1): # JPADynamicsBlock
   
   unused_jpachunk_field: u32 = field(default=0, assert_default=True)
   
-  flags: u32
+  flags: u32 = field(bitfield=True)
+  fixed_density: bool = field(bits=1)
+  fixed_interval: bool = field(bits=1)
+  inherit_scale: bool = field(bits=1)
+  follow_emitter: bool = field(bits=1)
+  follow_emitter_child: bool = field(bits=1)
+  unknown_1: u8 = field(bits=3, default=0, assert_default=True)
+  volume_type: VolumeType = field(bits=3)
   volume_sweep: f32
   volume_min_rad: f32
   volume_size: u16
@@ -31,7 +38,7 @@ class BEM1_JPC100(BEM1): # JPADynamicsBlock
   rate: f32
   rate_random: f32
   rate_step: u8
-  unknown_1: u8
+  unknown_2: u8
   max_frame: s16
   start_frame: s16
   life_time: s16
@@ -58,7 +65,14 @@ class BEM1_JPC100(BEM1): # JPADynamicsBlock
 class BEM1_JPC210(BEM1): # JPADynamicsBlock
   DATA_SIZE = JPAChunk.HEADER_SIZE + 0x74
 
-  flags: u32
+  flags: u32 = field(bitfield=True)
+  fixed_density: bool = field(bits=1)
+  fixed_interval: bool = field(bits=1)
+  inherit_scale: bool = field(bits=1)
+  follow_emitter: bool = field(bits=1)
+  follow_emitter_child: bool = field(bits=1)
+  unknown_1: u8 = field(bits=3, default=0, assert_default=True)
+  volume_type: VolumeType = field(bits=3)
   res_user_work: u32
   emitter_scale: Vec3float
   emitter_translation: Vec3float

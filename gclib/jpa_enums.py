@@ -6,6 +6,15 @@ class JPACVersion(str, Enum):
   JPAC1_00 = "JPAC1-00"
   JPAC2_10 = "JPAC2-10"
 
+class VolumeType(Enum):
+  Cube     = 0x00
+  Sphere   = 0x01
+  Cylinder = 0x02
+  Torus    = 0x03
+  Point    = 0x04
+  Circle   = 0x05
+  Line     = 0x06
+
 class JPAType(Enum):
   Point           = 0
   Line            = 1
