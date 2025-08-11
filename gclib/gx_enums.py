@@ -147,22 +147,22 @@ class BlendFactor(u8, Enum):
   Inverse_Destination_Alpha = 0x07
 
 class LogicOp(u8, Enum):
-  CLEAR   = 0x00
-  AND     = 0x01
-  REVAND  = 0x02
-  COPY    = 0x03
-  INVAND  = 0x04
-  NOOP    = 0x05
-  XOR     = 0x06
-  OR      = 0x07
-  NOR     = 0x08
-  EQUIV   = 0x09
-  INV     = 0x0A
-  REVOR   = 0x0B
-  INVCOPY = 0x0C
-  INVOR   = 0x0D
-  NAND    = 0x0E
-  SET     = 0x0F
+  CLEAR    = 0x00
+  AND      = 0x01
+  REV_AND  = 0x02
+  COPY     = 0x03
+  INV_AND  = 0x04
+  NOOP     = 0x05
+  XOR      = 0x06
+  OR       = 0x07
+  NOR      = 0x08
+  EQUIV    = 0x09
+  INV      = 0x0A
+  REV_OR   = 0x0B
+  INV_COPY = 0x0C
+  INV_OR   = 0x0D
+  NAND     = 0x0E
+  SET      = 0x0F
 
 class TexCoordID(u8, Enum):
   TEXCOORD0     = 0x00

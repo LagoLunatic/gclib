@@ -1,7 +1,8 @@
 
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
-from gclib.jpa_enums import JPACVersion
+from gclib.jpa_enums import JPABlendFactor, JPABlendMode, JPACVersion, JPACalcType, JPACompareType, JPALogicOp, JPATiling, JPAType, DirType, PlaneType, RotType, TevAlphaArg, TevColorArg
+import gclib.gx_enums as GX
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, f32, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, bunfoe, field
 from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu8, RGBAs16, Vec3u16Rot
@@ -37,17 +38,48 @@ class BSP1_JPC100(BSP1): # JPABaseShape
   
   unused_jpachunk_field: u32 = field(default=0, assert_default=True)
 
-  flags: u32
+  flags: u32 = field(bitfield=True)
+  type: JPAType = field(bits=4)
+  dir_type: DirType = field(bits=3)
+  rot_type: RotType = field(bits=3)
+  base_plane_type: PlaneType = field(bits=1)
+  color_anim_loop_offset: bool = field(bits=1)
+  enable_global_color_anim: bool = field(bits=1)
+  tex_index_anim_loop_offset: bool = field(bits=1)
+  enable_global_tex_anim: bool = field(bits=1)
+  color_in_args: TevColorArg = field(bits=3)
+  alpha_in_args: TevAlphaArg = field(bits=1)
+  enable_anim_tone: bool = field(bits=1)
+  enable_projection: bool = field(bits=1)
+  draw_in_reverse_order: bool = field(bits=1)
+  draw_child_first: bool = field(bits=1)
+  enable_clip: bool = field(bits=1)
+  enable_tex_scroll_anim: bool = field(bits=1)
   prm_color_anim_offset: s16
   env_color_anim_offset: s16
   base_size: Vec2float
   loop_offset: s16
-  blend_mode_flags: u16
-  alpha_compare_flags: u8
+  blend_mode_flags: u16 = field(bitfield=True)
+  blend_mode: JPABlendMode = field(bits=2)
+  blend_source_factor: JPABlendFactor = field(bits=4)
+  blend_destination_factor: JPABlendFactor = field(bits=4)
+  blend_logic_op: JPALogicOp = field(bits=4)
+  blend_enable_alpha_update: bool = field(bits=1)
+  alpha_compare_flags: u8 = field(bitfield=True)
+  alpha_compare_comp0: JPACompareType = field(bits=3)
+  alpha_compare_operation: GX.AlphaOp = field(bits=2)
+  alpha_compare_comp1: JPACompareType = field(bits=3)
   alpha_compare_ref0: u8
   alpha_compare_ref1: u8
-  z_mode_flags: u8
-  texture_flags: u8
+  z_mode_flags: u8 = field(bitfield=True)
+  z_mode_depth_test: bool = field(bits=1)
+  z_mode_depth_func: JPACompareType = field(bits=3)
+  z_mode_depth_write: bool = field(bits=1)
+  z_mode_z_compare: bool = field(bits=1)
+  texture_flags: u8 = field(bitfield=True)
+  texture_enable_index_anim: bool = field(bits=1)
+  texture_exists: bool = field(bits=1)
+  texture_anim_type: JPACalcType = field(bits=3)
   texture_index_anim_key_count: u8
   texture_index: u8
   color_flags: u8
@@ -134,16 +166,51 @@ class BSP1_JPC100(BSP1): # JPABaseShape
 class BSP1_JPC210(BSP1): # JPABaseShape
   DATA_SIZE = JPAChunk.HEADER_SIZE + 0x2C
   
-  flags: u32
+  flags: u32 = field(bitfield=True)
+  type: JPAType = field(bits=4)
+  dir_type: DirType = field(bits=3)
+  rot_type: RotType = field(bits=3)
+  base_plane_type: PlaneType = field(bits=1)
+  color_anim_loop_offset: bool = field(bits=1)
+  enable_global_color_anim: bool = field(bits=1)
+  tex_index_anim_loop_offset: bool = field(bits=1)
+  enable_global_tex_anim: bool = field(bits=1)
+  color_in_args: TevColorArg = field(bits=3)
+  alpha_in_args: TevAlphaArg = field(bits=1)
+  unknown_3: u8 = field(bits=1, default=0, assert_default=True)
+  enable_projection: bool = field(bits=1)
+  draw_in_reverse_order: bool = field(bits=1)
+  draw_child_first: bool = field(bits=1)
+  enable_clip: bool = field(bits=1)
+  enable_tex_scroll_anim: bool = field(bits=1)
+  tiling_x: JPATiling = field(bits=1)
+  tiling_y: JPATiling = field(bits=1)
+  no_draw_parent: bool = field(bits=1)
+  no_draw_child: bool = field(bits=1)
   prm_color_anim_offset: s16
   env_color_anim_offset: s16
   base_size: Vec2float
-  blend_mode_flags: u16
-  alpha_compare_flags: u8
+  blend_mode_flags: u16 = field(bitfield=True)
+  blend_mode: JPABlendMode = field(bits=2)
+  blend_source_factor: JPABlendFactor = field(bits=4)
+  blend_destination_factor: JPABlendFactor = field(bits=4)
+  blend_logic_op: JPALogicOp = field(bits=4)
+  blend_enable_alpha_update: bool = field(bits=1)
+  alpha_compare_flags: u8 = field(bitfield=True)
+  alpha_compare_comp0: JPACompareType = field(bits=3)
+  alpha_compare_operation: GX.AlphaOp = field(bits=2)
+  alpha_compare_comp1: JPACompareType = field(bits=3)
   alpha_compare_ref0: u8
   alpha_compare_ref1: u8
-  z_mode_flags: u8
-  texture_flags: u8
+  z_mode_flags: u8 = field(bitfield=True)
+  z_mode_depth_test: bool = field(bits=1)
+  z_mode_depth_func: JPACompareType = field(bits=3)
+  z_mode_depth_write: bool = field(bits=1)
+  z_mode_z_compare: bool = field(bits=1)
+  texture_flags: u8 = field(bitfield=True)
+  texture_enable_index_anim: bool = field(bits=1)
+  texture_exists: bool = field(bits=1)
+  texture_anim_type: JPACalcType = field(bits=3)
   texture_index_anim_key_count: u8
   texture_index: u8
   color_flags: u8
@@ -171,7 +238,7 @@ class BSP1_JPC210(BSP1): # JPABaseShape
   def read_chunk_specific_data(self):
     offset = 0x34
     
-    if ((self.flags >> 24) & 1) != 0: # Enable texture scroll anim
+    if self.enable_tex_scroll_anim:
       self.texture_init_translation = self.read_value(Vec2float, offset)
       offset += self.get_byte_size(Vec2float)
       self.texture_init_scale = self.read_value(Vec2float, offset)
@@ -209,7 +276,7 @@ class BSP1_JPC210(BSP1): # JPABaseShape
     offset = 0x34
     self.data.truncate(offset)
     
-    if ((self.flags >> 24) & 1) != 0: # Enable texture scroll anim
+    if self.enable_tex_scroll_anim:
       self.save_value(Vec2float, offset, self.texture_init_translation)
       offset += self.get_byte_size(Vec2float)
       self.save_value(Vec2float, offset, self.texture_init_scale)
