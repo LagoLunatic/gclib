@@ -15,7 +15,7 @@ class VolumeType(Enum):
   Circle   = 0x05
   Line     = 0x06
 
-class JPAType(Enum):
+class JPAShapeType(Enum):
   Point           = 0
   Line            = 1
   Billboard       = 2

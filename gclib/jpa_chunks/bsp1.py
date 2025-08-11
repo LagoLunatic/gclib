@@ -1,7 +1,7 @@
 
 from gclib import fs_helpers as fs
 from gclib.jchunk import JPAChunk
-from gclib.jpa_enums import JPABlendFactor, JPABlendMode, JPACVersion, JPACalcType, JPACompareType, JPALogicOp, JPATiling, JPAType, DirType, PlaneType, RotType, TevAlphaArg, TevColorArg
+from gclib.jpa_enums import JPABlendFactor, JPABlendMode, JPACVersion, JPACalcType, JPACompareType, JPALogicOp, JPATiling, JPAShapeType, DirType, PlaneType, RotType, TevAlphaArg, TevColorArg
 import gclib.gx_enums as GX
 from gclib.fs_helpers import u32, u24, u16, u8, s32, s16, s8, f32, u16Rot, FixedStr, MagicStr
 from gclib.bunfoe import BUNFOE, bunfoe, field
@@ -39,7 +39,7 @@ class BSP1_JPC100(BSP1): # JPABaseShape
   unused_jpachunk_field: u32 = field(default=0, assert_default=True)
 
   flags: u32 = field(bitfield=True)
-  type: JPAType = field(bits=4)
+  shape_type: JPAShapeType = field(bits=4)
   dir_type: DirType = field(bits=3)
   rot_type: RotType = field(bits=3)
   base_plane_type: PlaneType = field(bits=1)
@@ -167,7 +167,7 @@ class BSP1_JPC210(BSP1): # JPABaseShape
   DATA_SIZE = JPAChunk.HEADER_SIZE + 0x2C
   
   flags: u32 = field(bitfield=True)
-  type: JPAType = field(bits=4)
+  shape_type: JPAShapeType = field(bits=4)
   dir_type: DirType = field(bits=3)
   rot_type: RotType = field(bits=3)
   base_plane_type: PlaneType = field(bits=1)
