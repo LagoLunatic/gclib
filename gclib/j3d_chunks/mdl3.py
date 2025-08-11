@@ -246,6 +246,8 @@ class MDLEntry(BUNFOE):
         self.bp_commands += cmds_for_order_pair
     
     for i, color in enumerate(mat.tev_colors):
+      if color is None:
+        continue
       # TODO: what is with this i==3, i+1 stuff?
       if i == 3:
         continue
@@ -261,6 +263,8 @@ class MDLEntry(BUNFOE):
       self.bp_commands.append(self.bp_commands[-1].copy())
     
     for i, color in enumerate(mat.tev_konst_colors):
+      if color is None:
+        continue
       self.bp_commands.append(BP.TEV_REGISTERL(
         reg_index=i,
         r=color.r, a=color.a, is_konst=True,
