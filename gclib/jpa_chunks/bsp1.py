@@ -171,9 +171,9 @@ class BSP1_JPC210(BSP1): # JPABaseShape
   dir_type: DirType = field(bits=3)
   rot_type: RotType = field(bits=3)
   base_plane_type: PlaneType = field(bits=1)
-  color_anim_loop_offset: bool = field(bits=1)
+  unknown_1: bool = field(bits=1) # Seems to never be read, but is sometimes nonzero. Is this leftover color_anim_loop_offset?
   enable_global_color_anim: bool = field(bits=1)
-  tex_index_anim_loop_offset: bool = field(bits=1)
+  unknown_2: bool = field(bits=1) # Seems to never be read, but is sometimes nonzero. Is this leftover tex_index_anim_loop_offset?
   enable_global_tex_anim: bool = field(bits=1)
   color_in_args: TevColorArg = field(bits=3)
   alpha_in_args: TevAlphaArg = field(bits=1)

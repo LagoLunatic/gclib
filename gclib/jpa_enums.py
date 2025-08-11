@@ -114,3 +114,17 @@ class JPACalcType(Enum):
 class JPATiling(Enum):
   One = 0
   Two = 1
+
+class AlphaWaveType(Enum):
+  Nrm_Sin  = 0x00
+  Add_Sin  = 0x01
+  Mult_Sin = 0x02
+
+class ScaleAnimType_JPC100(Enum):
+  Repeat  = 0x00
+  Reverse = 0x01
+
+class ScaleAnimType_JPC210(Enum):
+  Normal  = 0x00
+  Repeat  = 0x01
+  Reverse = 0x02

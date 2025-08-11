@@ -35,8 +35,13 @@ class JParticle:
   }
   
   def __init__(self, jpc_data, particle_offset, jpac_version: JPACVersion):
+    self.bem1 = None
     self.bsp1 = None
+    self.esp1 = None
+    self.etx1 = None
     self.ssp1 = None
+    self.fld1 = []
+    self.kfa1 = []
     self.tdb1 = None
     
     self.version = jpac_version
