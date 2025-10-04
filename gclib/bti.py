@@ -156,6 +156,9 @@ class BTI(GCLibFile):
     return image_data_offset, curr_mipmap_size, width, height
   
   def get_max_valid_mipmap_count(self):
+    if self.width == 1 or self.height == 1:
+      # Avoid returning 0.
+      return 1
     mipmap_index = 0
     width = self.width
     height = self.height
