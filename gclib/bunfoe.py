@@ -42,6 +42,8 @@ class Field(dataclasses.Field):
                'manual_read',
                )
 
+  type: Type | None
+
   def __init__(self, default, default_factory, init, repr, hash, compare, metadata, kw_only,
                length, length_calculator, ignore, bitfield, bits, assert_default, manual_read):
     self.name = None

@@ -11,6 +11,8 @@ from gclib.yaz0_yay0 import Yaz0, Yay0
 MAX_DATA_SIZE_TO_READ_AT_ONCE = 64*1024*1024 # 64MB
 
 class GCM:
+  file_entries: list['GCMFileEntry']
+  
   def __init__(self, iso_path):
     self.iso_path = iso_path
     self.files_by_path: dict[str, GCMBaseFile] = {}
@@ -636,6 +638,8 @@ class GCMBaseFile:
     pass
 
 class GCMFileEntry(GCMBaseFile):
+  file_path: str
+  
   def read(self, file_index, iso_file, file_entry_offset, fnt_offset):
     self.file_index = file_index
     
