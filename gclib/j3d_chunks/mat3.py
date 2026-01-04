@@ -45,41 +45,49 @@ class BlendMode(BUNFOE):
   logic_op          : GX.LogicOp
 
 @bunfoe
+class TevKonstColorSel(BUNFOE):
+  value: GX.KonstColorSel = GX.KonstColorSel.K0
+
+@bunfoe
+class TevKonstAlphaSel(BUNFOE):
+  value: GX.KonstAlphaSel = GX.KonstAlphaSel.K0_A
+
+@bunfoe
 class TevOrder(BUNFOE):
-  tex_coord_id: GX.TexCoordID
-  tex_map_id  : GX.TexMapID
-  channel_id  : GX.ColorChannelID
-  _padding    : u8 = 0xFF
+  tex_coord_id: GX.TexCoordID     = GX.TexCoordID.TEXCOORD0
+  tex_map_id  : GX.TexMapID       = GX.TexMapID.TEXMAP0
+  channel_id  : GX.ColorChannelID = GX.ColorChannelID.COLOR_NULL
+  _padding    : u8                = 0xFF
 
 @bunfoe
 class TevStage(BUNFOE):
-  tev_mode    : u8
-  color_in_a  : GX.CombineColor
-  color_in_b  : GX.CombineColor
-  color_in_c  : GX.CombineColor
-  color_in_d  : GX.CombineColor
-  color_op    : GX.TevOp
-  color_bias  : GX.TevBias
-  color_scale : GX.TevScale
-  color_clamp : bool
-  color_reg_id: GX.Register
-  alpha_in_a  : GX.CombineAlpha
-  alpha_in_b  : GX.CombineAlpha
-  alpha_in_c  : GX.CombineAlpha
-  alpha_in_d  : GX.CombineAlpha
-  alpha_op    : GX.TevOp
-  alpha_bias  : GX.TevBias
-  alpha_scale : GX.TevScale
-  alpha_clamp : bool
-  alpha_reg_id: GX.Register
-  _padding_1  : u8
+  tev_mode    : u8              = 0xFF
+  color_in_a  : GX.CombineColor = GX.CombineColor.C0
+  color_in_b  : GX.CombineColor = GX.CombineColor.KONST
+  color_in_c  : GX.CombineColor = GX.CombineColor.TEXC
+  color_in_d  : GX.CombineColor = GX.CombineColor.ZERO
+  color_op    : GX.TevOp        = GX.TevOp.ADD
+  color_bias  : GX.TevBias      = GX.TevBias.ZERO
+  color_scale : GX.TevScale     = GX.TevScale.SCALE_1
+  color_clamp : bool            = True
+  color_reg_id: GX.Register     = GX.Register.PREV
+  alpha_in_a  : GX.CombineAlpha = GX.CombineAlpha.ZERO
+  alpha_in_b  : GX.CombineAlpha = GX.CombineAlpha.ZERO
+  alpha_in_c  : GX.CombineAlpha = GX.CombineAlpha.ZERO
+  alpha_in_d  : GX.CombineAlpha = GX.CombineAlpha.ZERO
+  alpha_op    : GX.TevOp        = GX.TevOp.ADD
+  alpha_bias  : GX.TevBias      = GX.TevBias.ZERO
+  alpha_scale : GX.TevScale     = GX.TevScale.SCALE_1
+  alpha_clamp : bool            = True
+  alpha_reg_id: GX.Register     = GX.Register.PREV
+  _padding_1  : u8              = field(default=0xFF, assert_default=True)
 
 @bunfoe
 class TexCoord(BUNFOE):
-  type_           : GX.TexGenType
-  source          : GX.TexGenSrc
-  tex_gen_matrix  : GX.TexGenMatrix
-  _padding_1      : u8 = 0xFF
+  type_           : GX.TexGenType   = GX.TexGenType.MTX2x4
+  source          : GX.TexGenSrc    = GX.TexGenSrc.TEX0
+  tex_gen_matrix  : GX.TexGenMatrix = GX.TexGenMatrix.IDENTITY
+  _padding_1      : u8              = field(default=0xFF, assert_default=True)
 
 class TexMtxProjection(u8, Enum):
   MTX3x4 = 0x00
@@ -108,26 +116,26 @@ class TexMatrix(BUNFOE):
   map_mode     : TexMtxMapMode    = field(bits=6, default=TexMtxMapMode.None_)
   unknown_1    : bool             = field(bits=1, default=False, assert_default=True)
   is_maya      : bool             = field(bits=1, default=False)
-  _padding_1   : u16              = 0xFFFF
+  _padding_1   : u16              = field(default=0xFFFF, assert_default=True)
   center       : Vec3float        = field(default_factory=lambda: Vec3float(x=0.5, y=0.5, z=0.5))
   scale        : Vec2float        = field(default_factory=lambda: Vec2float(x=1.0, y=1.0))
   rotation     : u16Rot           = 0
-  _padding_2   : u16              = 0xFFFF
+  _padding_2   : u16              = field(default=0xFFFF, assert_default=True)
   translation  : Vec2float        = field(default_factory=Vec2float)
   effect_matrix: Matrix4x4        = field(default_factory=Matrix4x4)
 
 @bunfoe
 class TevSwapMode(BUNFOE):
-  ras_sel   : u8
-  tex_sel   : u8
-  _padding_1: u16
+  ras_sel   : u8  = 0
+  tex_sel   : u8  = 0
+  _padding_1: u16 = field(default=0xFFFF, assert_default=True)
 
 @bunfoe
 class TevSwapModeTable(BUNFOE):
-  r: u8
-  g: u8
-  b: u8
-  a: u8
+  r: u8 = 0
+  g: u8 = 1
+  b: u8 = 2
+  a: u8 = 3
 
 @bunfoe
 class FogInfo(BUNFOE):
@@ -147,7 +155,7 @@ class FogInfo(BUNFOE):
 @bunfoe
 class NBTScale(BUNFOE):
   enable  : bool
-  _padding: u24 = 0xFFFFFF
+  _padding: u24 = field(default=0xFFFFFF, assert_default=True)
   scale   : Vec3float
 
 @bunfoe
@@ -175,8 +183,8 @@ class Material(BUNFOE):
   post_tex_matrixes   : list[TexMatrix]        = field(metadata={'indexed_by': (u16, 'post_tex_matrix_list_offset')}, length=20)
   textures            : list[u16]              = field(metadata={'indexed_by': (u16, 'texture_remap_table_offset')}, length=8)
   tev_konst_colors    : list[RGBAu8]           = field(metadata={'indexed_by': (u16, 'tev_konst_color_list_offset')}, length=4)
-  tev_konst_color_sels: list[GX.KonstColorSel] = field(length=16)
-  tev_konst_alpha_sels: list[GX.KonstAlphaSel] = field(length=16)
+  tev_konst_color_sels: list[TevKonstColorSel] = field(length=16)
+  tev_konst_alpha_sels: list[TevKonstAlphaSel] = field(length=16)
   tev_orders          : list[TevOrder]         = field(metadata={'indexed_by': (u16, 'tev_order_list_offset')}, length=16)
   tev_colors          : list[RGBAs16]          = field(metadata={'indexed_by': (u16, 'tev_color_list_offset')}, length=4)
   tev_stages          : list[TevStage]         = field(metadata={'indexed_by': (u16, 'tev_stage_list_offset')}, length=16)
@@ -274,19 +282,19 @@ class Material(BUNFOE):
 class IndirectTevOrder(BUNFOE): 
   tex_coord_id: GX.TexCoordID = GX.TexCoordID.TEXCOORD_NULL
   tex_map_id  : GX.TexMapID   = GX.TexMapID.TEXMAP_NULL
-  _padding_1  : u16           = 0xFFFF
+  _padding_1  : u16           = field(default=0xFFFF, assert_default=True)
 
 @bunfoe
 class IndirectTexMatrix(BUNFOE):
   matrix        : Matrix2x3 = field(default_factory=Matrix2x3)
   scale_exponent: s8        = 1
-  _padding      : u24       = 0xFFFFFF
+  _padding      : u24       = field(default=0xFFFFFF, assert_default=True)
 
 @bunfoe
 class IndirectTexScale(BUNFOE):
   scale_s : GX.IndirectTexScale = GX.IndirectTexScale._1
   scale_t : GX.IndirectTexScale = GX.IndirectTexScale._1
-  _padding: u16                 = 0xFFFF
+  _padding: u16                 = field(default=0xFFFF, assert_default=True)
 
 @bunfoe
 class IndirectTevStage(BUNFOE):

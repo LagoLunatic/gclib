@@ -81,14 +81,14 @@ class RGBu8(RGBA):
 
 @bunfoe
 class RGBAu8(RGBA):
-  r: u8 = 0
-  g: u8 = 0
-  b: u8 = 0
-  a: u8 = 0
+  r: u8 = 0xFF
+  g: u8 = 0xFF
+  b: u8 = 0xFF
+  a: u8 = 0xFF
 
 @bunfoe
 class RGBAs16(RGBA):
-  r: s16 = 0
-  g: s16 = 0
-  b: s16 = 0
-  a: s16 = 0
+  r: s16 = 0xFF
+  g: s16 = 0xFF
+  b: s16 = 0xFF
+  a: s16 = 0xFF

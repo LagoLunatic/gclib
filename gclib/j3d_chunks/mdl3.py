@@ -306,13 +306,13 @@ class MDLEntry(BUNFOE):
     for i, (color_sel, alpha_sel) in enumerate(zip(mat.tev_konst_color_sels, mat.tev_konst_alpha_sels)):
       if i % 2 == 0:
         ksel_cmd = BP.TEV_KSEL(reg_index=i//2)
-        ksel_cmd.color_sel_0 = color_sel
-        ksel_cmd.alpha_sel_0 = alpha_sel
+        ksel_cmd.color_sel_0 = color_sel.value
+        ksel_cmd.alpha_sel_0 = alpha_sel.value
         ksel_cmds.append(ksel_cmd)
       else:
         ksel_cmd = ksel_cmds[i//2]
-        ksel_cmd.color_sel_1 = color_sel
-        ksel_cmd.alpha_sel_1 = alpha_sel
+        ksel_cmd.color_sel_1 = color_sel.value
+        ksel_cmd.alpha_sel_1 = alpha_sel.value
     
     for i, swap_mode_table in enumerate(mat.tev_swap_mode_tables[:4]):
       ksel_cmd = ksel_cmds[i*2+0]
