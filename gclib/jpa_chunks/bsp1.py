@@ -11,8 +11,8 @@ from gclib.bunfoe_types import Vec2float, Vec3float, Matrix2x3, Matrix4x4, RGBAu
 class ColorAnimationKeyframe(BUNFOE):
   DATA_SIZE = 6
   
-  time: u16
-  color: RGBAu8
+  time : u16 = 0
+  color: RGBAu8 = field(default_factory=RGBAu8)
 
 class BSP1(JPAChunk):
   prm_color_anim_offset: s16

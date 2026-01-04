@@ -15,7 +15,7 @@ class ZMode(BUNFOE):
   depth_test : bool           = True
   depth_func : GX.CompareType = GX.CompareType.Less_Equal
   depth_write: bool           = True
-  _padding_1 : u8             = 0xFF
+  _padding_1 : u8             = field(default=0xFF, assert_default=True)
 
 @bunfoe
 class ColorChannel(BUNFOE):
@@ -26,7 +26,7 @@ class ColorChannel(BUNFOE):
   diffuse_function    : GX.DiffuseFunction     = GX.DiffuseFunction.Clamp
   attenuation_function: GX.AttenuationFunction = GX.AttenuationFunction.Spot
   ambient_color_src   : GX.ColorSrc            = GX.ColorSrc.Register
-  _padding            : u16                    = 0xFFFF
+  _padding            : u16                    = field(default=0xFFFF, assert_default=True)
 
 @bunfoe
 class AlphaCompare(BUNFOE):
@@ -35,7 +35,7 @@ class AlphaCompare(BUNFOE):
   operation: GX.AlphaOp     = GX.AlphaOp.AND
   comp1    : GX.CompareType = GX.CompareType.Less_Equal
   ref1     : u8             = 255
-  _padding : u24            = 0xFFFFFF
+  _padding : u24            = field(default=0xFFFFFF, assert_default=True)
 
 @bunfoe
 class BlendMode(BUNFOE):
@@ -57,7 +57,7 @@ class TevOrder(BUNFOE):
   tex_coord_id: GX.TexCoordID     = GX.TexCoordID.TEXCOORD0
   tex_map_id  : GX.TexMapID       = GX.TexMapID.TEXMAP0
   channel_id  : GX.ColorChannelID = GX.ColorChannelID.COLOR_NULL
-  _padding    : u8                = 0xFF
+  _padding    : u8                = field(default=0xFF, assert_default=True)
 
 @bunfoe
 class TevStage(BUNFOE):
@@ -141,16 +141,16 @@ class TevSwapModeTable(BUNFOE):
 class FogInfo(BUNFOE):
   DATA_SIZE = 0x2C
   
-  fog_type         : GX.FogType
+  fog_type         : GX.FogType = GX.FogType.LINEAR
   # TODO: fog_type & 0x08 may be projection? need to find an example of orthographic fog...
-  enable           : bool
-  center           : u16
-  start_z          : float
-  end_z            : float
-  near_z           : float
-  far_z            : float
+  enable           : bool       = False
+  center           : u16        = 320
+  start_z          : float      = 10.0
+  end_z            : float      = 2000.0
+  near_z           : float      = 10.0
+  far_z            : float      = 10000.0
   color            : RGBAu8
-  range_adjustments: list[u16] = field(length=10)
+  range_adjustments: list[u16]  = field(length=10)
 
 @bunfoe
 class NBTScale(BUNFOE):
