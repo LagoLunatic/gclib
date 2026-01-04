@@ -82,7 +82,8 @@ class BTI(GCLibFile):
     fs.write_u8(self.data, self.header_offset+0x14, self.min_filter.value)
     fs.write_u8(self.data, self.header_offset+0x15, self.mag_filter.value)
     
-    assert self.mipmap_count <= self.get_max_valid_mipmap_count()
+    max_mipmap_count = self.get_max_valid_mipmap_count()
+    assert self.mipmap_count <= max_mipmap_count, f"Mipmap count {self.mipmap_count} too large ({max_mipmap_count} maximum)"
     self.max_lod = min(0xFF, max(0, (self.mipmap_count-1)*8))
     fs.write_u8(self.data, self.header_offset+0x16, self.min_lod)
     fs.write_u8(self.data, self.header_offset+0x17, self.max_lod)
