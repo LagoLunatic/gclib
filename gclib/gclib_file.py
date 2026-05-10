@@ -1,4 +1,5 @@
 from io import BytesIO
+from pathlib import Path
 
 from gclib.yaz0_yay0 import Yaz0, Yay0
 
@@ -30,7 +31,7 @@ class GCLibFile:
   data: BytesIO
   file_entry: GCLibFileEntry | None
   
-  def __init__(self, flexible_data: GCLibFileEntry | BytesIO | str | None = None):
+  def __init__(self, flexible_data: GCLibFileEntry | BytesIO | Path | str | None = None):
     if isinstance(flexible_data, GCLibFileEntry):
       self.file_entry = flexible_data
       self.file_entry.decompress_data_if_necessary()
@@ -41,7 +42,7 @@ class GCLibFile:
     
     if isinstance(flexible_data, BytesIO):
       self.data = flexible_data
-    elif isinstance(flexible_data, str):
+    elif isinstance(flexible_data, Path) or isinstance(flexible_data, str):
       with open(flexible_data, "rb") as f:
         self.data = BytesIO(f.read())
     elif flexible_data is None:

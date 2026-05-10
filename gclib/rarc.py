@@ -2,6 +2,7 @@
 import os
 from io import BytesIO
 from enum import IntFlag
+from pathlib import Path
 from typing import Type, TypeVar
 
 from gclib import fs_helpers as fs
@@ -52,7 +53,7 @@ class RARC(GCLibFile):
   def read(self):
     # Read header.
     self.magic = fs.read_str(self.data, 0, 4)
-    assert self.magic == "RARC"
+    assert self.magic == "RARC", "This file is not a RARC archive."
     self.size = fs.read_u32(self.data, 4)
     self.data_header_offset = fs.read_u32(self.data, 0x8)
     assert self.data_header_offset == 0x20
@@ -248,8 +249,7 @@ class RARC(GCLibFile):
   
   def extract_all_files_to_disk_flat(self, output_directory: str):
     # Does not preserve directory structure.
-    if not os.path.isdir(output_directory):
-      os.mkdir(output_directory)
+    os.makedirs(output_directory, exist_ok=True)
     
     for file_entry in self.file_entries:
       if file_entry.is_dir:
@@ -266,9 +266,8 @@ class RARC(GCLibFile):
     root_node = self.nodes[0]
     self.extract_node_to_disk(root_node, output_directory)
   
-  def extract_node_to_disk(self, node: 'RARCNode', path: str):
-    if not os.path.isdir(path):
-      os.mkdir(path)
+  def extract_node_to_disk(self, node: 'RARCNode', path: Path | str):
+    os.makedirs(path, exist_ok=True)
     
     for file in node.files:
       if file.is_dir:
