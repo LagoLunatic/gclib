@@ -6,11 +6,11 @@
 #
 cffi==1.17.1
     # via imagequant
-imagequant==1.1.4
+imagequant==1.1.5
     # via gclib (pyproject.toml)
 numpy==2.2.3
     # via gclib (pyproject.toml)
-pillow==11.1.0
+pillow==12.2.0
     # via gclib (pyproject.toml)
 pycparser==2.22
     # via cffi
