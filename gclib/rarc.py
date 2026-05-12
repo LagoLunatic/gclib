@@ -312,7 +312,7 @@ class RARC(GCLibFile):
       rel_dir = file_entry.parent_node.name
       display_path = rel_dir + "/" + base_name + file_ext
       
-      if file_ext == ".arc":
+      if file_entry.check_is_nested_rarc():
         inner_rarc = self.get_file(file_entry.name, RARC)
         for inner_rarc_file_path, file_data in inner_rarc.each_file_data(only_file_exts=only_file_exts):
           yield (display_path + "/" + inner_rarc_file_path, file_data)
