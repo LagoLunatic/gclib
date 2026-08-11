@@ -104,6 +104,14 @@ class RARC(GCLibFile):
         file_entry.parent_node = node
         node.files.append(file_entry)
     
+    for node in self.nodes[1:]:
+      assert node.dir_entry is not None, f"Failed to find directory entry for RARC node {repr(node.name)}"
+    for file_entry in self.file_entries:
+      if file_entry.name == ".":
+        # Special "." directories in TPHD are not considered to be part of the node they correspond to anymore and have no parent.
+        continue
+      assert file_entry.parent_node is not None, f"Failed to find parent node for RARC file entry {repr(file_entry.name)}"
+    
     self.instantiated_object_files = {}
   
   def add_root_directory(self):
@@ -582,7 +590,8 @@ class RARCFileEntry(GCLibFileEntry):
     self.name = fs.read_str_until_null_character(self.rarc.data, self.rarc.string_list_offset + self.name_offset)
     
     if self.is_dir:
-      assert self.data_size == 0x10
+      # Directories have data size 0x10 for GC, but 0 for TPHD.
+      assert self.data_size in [0x10, 0], f"Unknown data size for RARC directory entry: %X" % self.data_size
       self.node_index = data_offset_or_node_index
       self.node = None # This will be populated later.
       self.data = None
